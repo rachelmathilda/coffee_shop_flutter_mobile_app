@@ -50,7 +50,37 @@ jobs:
           EOF
 
       - name: Create google-services.json
-        run: echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > android/app/google-services.json
+        run: |
+          cat > android/app/google-services.json << EOF
+          {
+            "project_info": {
+              "project_number": "${{ secrets.FIREBASE_SENDER_ID }}",
+              "project_id": "${{ secrets.FIREBASE_PROJECT_ID }}",
+              "storage_bucket": "${{ secrets.FIREBASE_STORAGE_BUCKET }}"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "${{ secrets.FIREBASE_APP_ID }}",
+                  "android_client_info": {
+                    "package_name": "com.example.coffee_shop"
+                  }
+                },
+                "api_key": [
+                  {
+                    "current_key": "${{ secrets.GOOGLE_SERVICES_API_KEY }}"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
+                  }
+                }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
 
       - name: Flutter pub get
         run: flutter pub get
