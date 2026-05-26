@@ -37,7 +37,6 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
   }
 }
 
-// ── Catalog tab ─────────────────────────────────────────────────
 class _CatalogBody extends ConsumerWidget {
   const _CatalogBody();
 
@@ -45,7 +44,6 @@ class _CatalogBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final coffees = ref.watch(filteredCatalogProvider);
     final cart = ref.watch(cartProvider);
-    final total = ref.watch(cartTotalProvider);
 
     return Stack(
       children: [
@@ -76,7 +74,6 @@ class _CatalogBody extends ConsumerWidget {
                   ),
                 ),
               ),
-              // Custom my own coffee banner
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -91,7 +88,7 @@ class _CatalogBody extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -146,10 +143,9 @@ class _CatalogBody extends ConsumerWidget {
             ],
           ),
         ),
-        // Floating cart summary
         if (cart.isNotEmpty)
           Positioned(
-            bottom: 8,
+            bottom: 60,
             left: 16,
             right: 16,
             child: GestureDetector(
@@ -164,7 +160,7 @@ class _CatalogBody extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 12,
                     ),
                   ],
@@ -234,22 +230,19 @@ class _CatalogBody extends ConsumerWidget {
           ),
         if (cart.isNotEmpty)
           Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryDark,
-                  minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+            bottom: 8,
+            left: 16,
+            right: 16,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryDark,
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                onPressed: () => context.push('/cart'),
-                child: const Text('Checkout'),
               ),
+              onPressed: () => context.push('/cart'),
+              child: const Text('Checkout'),
             ),
           ),
       ],
@@ -275,7 +268,7 @@ class _CoffeeCard extends ConsumerWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -392,7 +385,6 @@ class _QtyBtn extends StatelessWidget {
   }
 }
 
-// ── Placeholder tabs ─────────────────────────────────────────────
 class _DiscountTab extends StatelessWidget {
   const _DiscountTab();
 
@@ -423,7 +415,6 @@ class _ProfileTab extends StatelessWidget {
   }
 }
 
-// ── Bottom nav ───────────────────────────────────────────────────
 class _BottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -431,29 +422,6 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const items = [
-      BottomNavigationBarItem(
-        icon: Icon(Icons.home_outlined),
-        activeIcon: Icon(Icons.home),
-        label: 'home',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.discount_outlined),
-        activeIcon: Icon(Icons.discount),
-        label: 'discount',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.add_box_outlined),
-        activeIcon: Icon(Icons.add_box),
-        label: 'order',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.person_outline),
-        activeIcon: Icon(Icons.person),
-        label: 'profile',
-      ),
-    ];
-
     return BottomNavigationBar(
       currentIndex: currentIndex,
       onTap: onTap,
@@ -464,7 +432,28 @@ class _BottomNav extends StatelessWidget {
       elevation: 8,
       selectedFontSize: 11,
       unselectedFontSize: 11,
-      items: items,
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home_outlined),
+          activeIcon: Icon(Icons.home),
+          label: 'home',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.discount_outlined),
+          activeIcon: Icon(Icons.discount),
+          label: 'discount',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.add_box_outlined),
+          activeIcon: Icon(Icons.add_box),
+          label: 'order',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person_outline),
+          activeIcon: Icon(Icons.person),
+          label: 'profile',
+        ),
+      ],
     );
   }
 }

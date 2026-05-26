@@ -14,7 +14,7 @@ class CustomCoffeeScreen extends ConsumerStatefulWidget {
 
 class _CustomCoffeeScreenState extends ConsumerState<CustomCoffeeScreen>
     with TickerProviderStateMixin {
-  int _step = 0; // 0=type, 1=cupSize, 2=sugar, 3=topping, 4=result
+  int _step = 0;
   final int _totalSteps = 5;
 
   late AnimationController _slideCtrl;
@@ -22,10 +22,8 @@ class _CustomCoffeeScreenState extends ConsumerState<CustomCoffeeScreen>
   late AnimationController _fillCtrl;
 
   late Animation<Offset> _slideIn;
-  late Animation<double> _cupScale;
   late Animation<double> _fillAnim;
 
-  // Topping selection
   String? _selectedTopping;
   final _toppings = ['Pudding', 'Pearl', 'Caramel', 'Cream'];
   final _toppingIcons = [
@@ -55,10 +53,6 @@ class _CustomCoffeeScreenState extends ConsumerState<CustomCoffeeScreen>
       begin: const Offset(1, 0),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOutCubic));
-    _cupScale = Tween<double>(
-      begin: 0.8,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _cupAnimCtrl, curve: Curves.elasticOut));
     _fillAnim = CurvedAnimation(parent: _fillCtrl, curve: Curves.easeInOut);
 
     _slideCtrl.forward();
@@ -80,7 +74,7 @@ class _CustomCoffeeScreenState extends ConsumerState<CustomCoffeeScreen>
       setState(() => _step++);
       _slideCtrl.forward();
       _cupAnimCtrl.forward();
-      if (_step == 4) _fillCtrl.forward(); // result step
+      if (_step == 4) _fillCtrl.forward();
     }
   }
 
@@ -103,7 +97,6 @@ class _CustomCoffeeScreenState extends ConsumerState<CustomCoffeeScreen>
       body: SafeArea(
         child: Column(
           children: [
-            // Step indicator
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
               child: Row(
@@ -116,7 +109,7 @@ class _CustomCoffeeScreenState extends ConsumerState<CustomCoffeeScreen>
                       decoration: BoxDecoration(
                         color: i <= _step
                             ? AppColors.primary
-                            : AppColors.textLight.withOpacity(0.3),
+                            : AppColors.textLight.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -130,14 +123,11 @@ class _CustomCoffeeScreenState extends ConsumerState<CustomCoffeeScreen>
                 child: _buildStep(order),
               ),
             ),
-            // Buttons
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: _step == _totalSteps - 1
                   ? ElevatedButton(
-                      onPressed: () {
-                        context.go('/cart');
-                      },
+                      onPressed: () => context.go('/cart'),
                       child: const Text('Order'),
                     )
                   : Row(
@@ -191,11 +181,9 @@ class _CustomCoffeeScreenState extends ConsumerState<CustomCoffeeScreen>
   }
 }
 
-// ── Step widgets ─────────────────────────────────────────────────
-
 class _CupVisual extends StatelessWidget {
   final double height;
-  final double fillLevel; // 0.0 - 1.0
+  final double fillLevel;
   final Color fillColor;
 
   const _CupVisual({
@@ -230,7 +218,6 @@ class _CupPainter extends CustomPainter {
     final botW = w * 0.65;
     final rimH = h * 0.06;
 
-    // Cup body path
     final bodyPath = Path()
       ..moveTo((w - topW) / 2, rimH)
       ..lineTo((w - botW) / 2, h * 0.95)
@@ -238,7 +225,6 @@ class _CupPainter extends CustomPainter {
       ..lineTo((w + topW) / 2, rimH)
       ..close();
 
-    // Fill
     if (fillLevel > 0) {
       final fillTop = rimH + (h - rimH) * (1 - fillLevel);
       final fillPath = Path()
@@ -248,21 +234,19 @@ class _CupPainter extends CustomPainter {
         ..lineTo((w + topW) / 2 - (topW - botW) / 2 * (1 - fillLevel), fillTop)
         ..close();
 
-      final fillPaint = Paint()..color = fillColor.withOpacity(0.7);
+      final fillPaint = Paint()..color = fillColor.withValues(alpha: 0.7);
       canvas.save();
       canvas.clipPath(bodyPath);
       canvas.drawPath(fillPath, fillPaint);
       canvas.restore();
     }
 
-    // Cup outline
     final cupPaint = Paint()
       ..color = const Color(0xFFCCCCCC)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawPath(bodyPath, cupPaint);
 
-    // Rim
     final rimPaint = Paint()
       ..color = const Color(0xFFBBBBBB)
       ..style = PaintingStyle.stroke
@@ -317,7 +301,7 @@ class _TypeStep extends ConsumerWidget {
                   height: 28,
                   decoration: BoxDecoration(
                     color: order.temp == CoffeeTemp.iced
-                        ? Colors.white.withOpacity(0.2)
+                        ? Colors.white.withValues(alpha: 0.2)
                         : AppColors.primary,
                     shape: BoxShape.circle,
                   ),
@@ -499,9 +483,7 @@ class _SugarStep extends ConsumerWidget {
             const Spacer(),
             _CupVisual(
               fillLevel: fillLevel,
-              fillColor: const Color(
-                0xFFD4A574,
-              ).withOpacity(0.5 + sliderVal * 0.5),
+              fillColor: Color.fromRGBO(212, 165, 116, 0.5 + sliderVal * 0.5),
             ),
             const Spacer(),
           ],

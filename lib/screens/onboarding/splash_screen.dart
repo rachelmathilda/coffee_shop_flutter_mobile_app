@@ -19,21 +19,15 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _rotateAnim;
   late Animation<double> _fadeAnim;
   late Animation<double> _scaleAnim;
-  late Animation<double> _textFadeAnim;
 
   @override
   void initState() {
     super.initState();
 
-    // Mug slow rotate
     _rotateController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 6),
     )..repeat();
-    _rotateAnim = Tween<double>(begin: 0, end: 0.08).animate(
-      CurvedAnimation(parent: _rotateController, curve: Curves.easeInOut),
-    );
-    // Override with pendulum
     _rotateAnim =
         TweenSequence<double>([
           TweenSequenceItem(tween: Tween(begin: -0.05, end: 0.05), weight: 1),
@@ -42,14 +36,12 @@ class _SplashScreenState extends State<SplashScreen>
           CurvedAnimation(parent: _rotateController, curve: Curves.easeInOut),
         );
 
-    // Fade in
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
     )..forward();
     _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
 
-    // Scale bounce
     _scaleController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -57,14 +49,6 @@ class _SplashScreenState extends State<SplashScreen>
     _scaleAnim = CurvedAnimation(
       parent: _scaleController,
       curve: Curves.elasticOut,
-    );
-
-    _textFadeAnim = CurvedAnimation(
-      parent: AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 600),
-      )..forward(from: 0),
-      curve: Curves.easeOut,
     );
 
     _navigate();
