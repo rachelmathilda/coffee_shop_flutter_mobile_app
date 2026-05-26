@@ -23,14 +23,8 @@ jobs:
           channel: stable
 
       - name: Create firebase_options.dart
-        env:
-          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
-          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
-          FIREBASE_SENDER_ID: ${{ secrets.FIREBASE_SENDER_ID }}
-          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
         run: |
-          cat > lib/firebase_options.dart << 'DART'
+          cat > lib/firebase_options.dart << EOF
           import 'package:firebase_core/firebase_core.dart';
           import 'package:flutter/foundation.dart';
 
@@ -46,14 +40,14 @@ jobs:
             }
 
             static const FirebaseOptions android = FirebaseOptions(
-              apiKey: '$FIREBASE_API_KEY',
-              appId: '$FIREBASE_APP_ID',
-              messagingSenderId: '$FIREBASE_SENDER_ID',
-              projectId: '$FIREBASE_PROJECT_ID',
-              storageBucket: '$FIREBASE_STORAGE_BUCKET',
+              apiKey: '${{ secrets.FIREBASE_API_KEY }}',
+              appId: '${{ secrets.FIREBASE_APP_ID }}',
+              messagingSenderId: '${{ secrets.FIREBASE_SENDER_ID }}',
+              projectId: '${{ secrets.FIREBASE_PROJECT_ID }}',
+              storageBucket: '${{ secrets.FIREBASE_STORAGE_BUCKET }}',
             );
           }
-          DART
+          EOF
 
       - name: Create google-services.json
         run: echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > android/app/google-services.json
