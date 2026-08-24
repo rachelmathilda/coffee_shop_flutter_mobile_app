@@ -29,8 +29,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   final _pages = const [
     _OnboardingPage(
       image: 'assets/images/onboarding1.png',
-      title: 'Coupon and Discount',
-      subtitle: 'Redeem your coupon to get a\nspecial deal.',
+      title: 'Custom Coffee',
+      subtitle: 'Custom your coffee with various\ncoffee type and toppings',
     ),
     _OnboardingPage(
       image: 'assets/images/onboarding2.png',
