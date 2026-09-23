@@ -128,16 +128,23 @@ class _CatalogBody extends ConsumerWidget {
                 ),
               ),
               Expanded(
-                child: GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.82,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
+                child: coffees.when(
+                  data: (list) => GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.82,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
+                    itemCount: list.length,
+                    itemBuilder: (ctx, i) => _CoffeeCard(coffee: list[i]),
                   ),
-                  itemCount: coffees.length,
-                  itemBuilder: (ctx, i) => _CoffeeCard(coffee: coffees[i]),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (err, stack) =>
+                      Center(child: Text('couldn\'t load coffee: $err')),
                 ),
               ),
             ],
@@ -308,7 +315,7 @@ class _CoffeeCard extends ConsumerWidget {
                       ),
                       const Icon(Icons.star, color: AppColors.star, size: 12),
                       Text(
-                        ' ${coffee.rating}/5',
+                        ' ${coffee.rating.toStringAsFixed(1).replaceAll('.', ',')}/5',
                         style: const TextStyle(
                           fontSize: 10,
                           color: AppColors.textSecondary,

@@ -12,7 +12,7 @@ class SignInScreen extends ConsumerStatefulWidget {
 }
 
 class _SignInScreenState extends ConsumerState<SignInScreen> {
-  final _usernameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _rememberMe = false;
   bool _loading = false;
@@ -23,13 +23,14 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     try {
       await ref
           .read(authServiceProvider)
-          .signIn(_usernameCtrl.text.trim(), _passwordCtrl.text);
-      if (mounted) context.go('/catalog');
+          .signIn(_emailCtrl.text.trim(), _passwordCtrl.text);
+      if (mounted) context.go('/home');
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -37,7 +38,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
   @override
   void dispose() {
-    _usernameCtrl.dispose();
+    _emailCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
   }
@@ -61,10 +62,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   ),
                   const SizedBox(height: 24),
                   TextField(
-                    controller: _usernameCtrl,
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
-                      hintText: 'username',
-                      labelText: 'username',
+                      hintText: 'email',
+                      labelText: 'email',
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -133,12 +135,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   _SocialButton(
                     icon: Icons.g_mobiledata,
                     label: 'sign up with google',
-                    onTap: () {},
-                  ),
-                  const SizedBox(height: 12),
-                  _SocialButton(
-                    icon: Icons.apple,
-                    label: 'sign up with apple',
                     onTap: () {},
                   ),
                   const SizedBox(height: 24),

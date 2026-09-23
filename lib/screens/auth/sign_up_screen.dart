@@ -12,7 +12,7 @@ class SignUpScreen extends ConsumerStatefulWidget {
 }
 
 class _SignUpScreenState extends ConsumerState<SignUpScreen> {
-  final _usernameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
   bool _accepted = false;
@@ -27,15 +27,25 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     }
     setState(() => _loading = true);
     try {
-      await ref
-          .read(authServiceProvider)
-          .signUp(_usernameCtrl.text.trim(), _passwordCtrl.text);
-      if (mounted) context.go('/catalog');
+      final service = ref.read(authServiceProvider);
+      final credential = await service.signUp(
+        _emailCtrl.text.trim(),
+        _passwordCtrl.text,
+      );
+      final uid = credential.user?.uid;
+      if (uid != null) {
+        await service.saveUserProfile(uid, {
+          'email': _emailCtrl.text.trim(),
+          'createdAt': DateTime.now().toIso8601String(),
+        });
+      }
+      if (mounted) context.go('/home');
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -43,7 +53,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
   @override
   void dispose() {
-    _usernameCtrl.dispose();
+    _emailCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
     super.dispose();
@@ -86,8 +96,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   ),
                   const SizedBox(height: 24),
                   TextField(
-                    controller: _usernameCtrl,
-                    decoration: const InputDecoration(labelText: 'username'),
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(labelText: 'email'),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -151,12 +162,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   _SocialBtn(
                     icon: Icons.g_mobiledata,
                     label: 'sign up with google',
-                    onTap: () {},
-                  ),
-                  const SizedBox(height: 12),
-                  _SocialBtn(
-                    icon: Icons.apple,
-                    label: 'sign up with apple',
                     onTap: () {},
                   ),
                   const SizedBox(height: 24),

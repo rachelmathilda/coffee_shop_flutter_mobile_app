@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 
-class DiscountScreen extends StatelessWidget {
+class DiscountScreen extends ConsumerWidget {
   const DiscountScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final discounts = ref.watch(discountCatalogProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -31,21 +35,28 @@ class DiscountScreen extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: dummyDiscounts.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 14),
-        itemBuilder: (context, i) {
-          final d = dummyDiscounts[i];
-          return _DiscountCard(discount: d);
+      body: discounts.when(
+        data: (items) {
+          if (items.isEmpty) {
+            return const Center(child: Text('no discounts yet'));
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 14),
+            itemBuilder: (context, i) => _DiscountCard(discount: items[i]),
+          );
         },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) =>
+            Center(child: Text('couldn\'t load discounts: $err')),
       ),
     );
   }
 }
 
 class _DiscountCard extends StatelessWidget {
-  final discount;
+  final Discount discount;
   const _DiscountCard({required this.discount});
 
   @override
@@ -59,7 +70,6 @@ class _DiscountCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Left side - discount label
           Container(
             width: 110,
             decoration: const BoxDecoration(
@@ -81,9 +91,7 @@ class _DiscountCard extends StatelessWidget {
               ),
             ),
           ),
-          // Dashed divider
           CustomPaint(size: const Size(1, 100), painter: _DashedLinePainter()),
-          // Right side
           Expanded(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),

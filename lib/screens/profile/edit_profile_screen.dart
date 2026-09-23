@@ -16,13 +16,43 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _nameCtrl = TextEditingController();
   final _usernameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   bool _loading = false;
+  bool _loadingProfile = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final user = ref.read(authServiceProvider).currentUser;
+    if (user == null) {
+      setState(() => _loadingProfile = false);
+      return;
+    }
+    try {
+      final data = await ref.read(authServiceProvider).getUserProfile(user.uid);
+      if (mounted && data != null) {
+        _nameCtrl.text = data['name'] ?? '';
+        _usernameCtrl.text = data['username'] ?? '';
+        _emailCtrl.text = data['email'] ?? user.email ?? '';
+        _phoneCtrl.text = data['phone'] ?? '';
+      } else if (mounted) {
+        _emailCtrl.text = user.email ?? '';
+      }
+    } finally {
+      if (mounted) setState(() => _loadingProfile = false);
+    }
+  }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _usernameCtrl.dispose();
     _emailCtrl.dispose();
+    _phoneCtrl.dispose();
     super.dispose();
   }
 
@@ -35,6 +65,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         'name': _nameCtrl.text.trim(),
         'username': _usernameCtrl.text.trim(),
         'email': _emailCtrl.text.trim(),
+        'phone': _phoneCtrl.text.trim(),
       });
       if (mounted) {
         ScaffoldMessenger.of(
@@ -60,96 +91,111 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         children: [
           const WaveHeader(title: 'Edit Profile'),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-              child: Column(
-                children: [
-                  // Avatar
-                  Stack(
-                    children: [
-                      Container(
-                        width: 90,
-                        height: 90,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.secondary,
-                          image: const DecorationImage(
-                            image: NetworkImage(
-                              'https://api.dicebear.com/7.x/adventurer/png?seed=grind',
+            child: _loadingProfile
+                ? const Center(child: CircularProgressIndicator())
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+                    child: Column(
+                      children: [
+                        Stack(
+                          children: [
+                            Container(
+                              width: 90,
+                              height: 90,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.secondary,
+                                image: const DecorationImage(
+                                  image: NetworkImage(
+                                    'https://api.dicebear.com/7.x/adventurer/png?seed=grind',
+                                  ),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
                             ),
-                            fit: BoxFit.cover,
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: AppColors.textPrimary,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt_outlined,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+                        TextField(
+                          controller: _nameCtrl,
+                          decoration: const InputDecoration(hintText: 'Name'),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _usernameCtrl,
+                          decoration: const InputDecoration(
+                            hintText: 'Username',
                           ),
                         ),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: AppColors.textPrimary,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                          ),
-                          child: const Icon(
-                            Icons.camera_alt_outlined,
-                            color: Colors.white,
-                            size: 14,
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _emailCtrl,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: const InputDecoration(hintText: 'Email'),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _phoneCtrl,
+                          keyboardType: TextInputType.phone,
+                          decoration: const InputDecoration(
+                            hintText: 'Phone Number',
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 24),
+                        _ProfileOption(
+                          icon: Icons.language,
+                          label: 'Language',
+                          onTap: () => context.push('/profile/language'),
+                        ),
+                        const SizedBox(height: 8),
+                        _ProfileOption(
+                          icon: Icons.lock_outline,
+                          label: 'Change Password',
+                          onTap: () => context.push('/profile/change-password'),
+                        ),
+                        const SizedBox(height: 8),
+                        _ProfileOption(
+                          icon: Icons.logout,
+                          label: 'Sign Out',
+                          color: AppColors.error,
+                          onTap: () async {
+                            await ref.read(authServiceProvider).signOut();
+                            if (context.mounted) context.go('/auth/sign-in');
+                          },
+                        ),
+                        const SizedBox(height: 32),
+                        ElevatedButton(
+                          onPressed: _loading ? null : _save,
+                          child: _loading
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white,
+                                )
+                              : const Text('Save'),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 32),
-                  TextField(
-                    controller: _nameCtrl,
-                    decoration: const InputDecoration(hintText: 'Name'),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _usernameCtrl,
-                    decoration: const InputDecoration(hintText: 'Username'),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(hintText: 'Email'),
-                  ),
-                  const SizedBox(height: 24),
-                  // Extra options
-                  _ProfileOption(
-                    icon: Icons.language,
-                    label: 'Language',
-                    onTap: () => context.push('/profile/language'),
-                  ),
-                  const SizedBox(height: 8),
-                  _ProfileOption(
-                    icon: Icons.lock_outline,
-                    label: 'Change Password',
-                    onTap: () => context.push('/auth/change-password'),
-                  ),
-                  const SizedBox(height: 8),
-                  _ProfileOption(
-                    icon: Icons.logout,
-                    label: 'Sign Out',
-                    color: AppColors.error,
-                    onTap: () async {
-                      await ref.read(authServiceProvider).signOut();
-                      if (context.mounted) context.go('/auth/sign-in');
-                    },
-                  ),
-                  const SizedBox(height: 32),
-                  ElevatedButton(
-                    onPressed: _loading ? null : _save,
-                    child: _loading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Save'),
-                  ),
-                ],
-              ),
-            ),
           ),
         ],
       ),
@@ -191,7 +237,11 @@ class _ProfileOption extends StatelessWidget {
               style: TextStyle(color: c, fontWeight: FontWeight.w500),
             ),
             const Spacer(),
-            Icon(Icons.chevron_right, color: c.withOpacity(0.5), size: 18),
+            Icon(
+              Icons.chevron_right,
+              color: c.withValues(alpha: 0.5),
+              size: 18,
+            ),
           ],
         ),
       ),

@@ -28,13 +28,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          // Hero image with patterned bg
           Stack(
             children: [
               Container(
                 height: 280,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryLight.withOpacity(0.3),
+                  color: AppColors.primaryLight.withValues(alpha: 0.3),
                 ),
                 child: CustomPaint(
                   painter: _PatternPainter(),
@@ -56,7 +55,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withValues(alpha: 0.8),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
@@ -69,7 +68,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               ),
             ],
           ),
-          // Details
           Expanded(
             child: Container(
               decoration: const BoxDecoration(
@@ -91,11 +89,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           ),
                         ),
                         const Spacer(),
-                        const Icon(Icons.star, color: AppColors.star, size: 14),
                         Text(
-                          ' ${coffee.rating}/5',
+                          '${coffee.rating.toStringAsFixed(1).replaceAll('.', ',')}/5',
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 13,
                             color: AppColors.textSecondary,
                           ),
                         ),
@@ -130,7 +127,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             width: 56,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: active ? Colors.white : Colors.transparent,
+                              color: Colors.white,
                               border: Border.all(
                                 color: active
                                     ? AppColors.primary
@@ -207,9 +204,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         ),
                         const Spacer(),
                         if (_selectedAddIns.isNotEmpty)
-                          Text(
+                          const Text(
                             '+ \$ 0.80',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 13,
                             ),
@@ -225,10 +222,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         return GestureDetector(
                           onTap: () {
                             setState(() {
-                              if (active)
+                              if (active) {
                                 _selectedAddIns.remove(a);
-                              else
+                              } else {
                                 _selectedAddIns.add(a);
+                              }
                             });
                           },
                           child: AnimatedContainer(
@@ -238,9 +236,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: active
-                                  ? AppColors.secondary
-                                  : Colors.transparent,
+                              color: Colors.white,
                               border: Border.all(
                                 color: active
                                     ? AppColors.primary
@@ -267,7 +263,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               ),
             ),
           ),
-          // Add to Cart button
           Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
@@ -303,7 +298,7 @@ class _PatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppColors.primary.withOpacity(0.12)
+      ..color = AppColors.primary.withValues(alpha: 0.12)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
 

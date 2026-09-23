@@ -15,16 +15,21 @@ class CustomCoffeeScreen extends ConsumerStatefulWidget {
 class _CustomCoffeeScreenState extends ConsumerState<CustomCoffeeScreen>
     with TickerProviderStateMixin {
   int _step = 0;
-  final int _totalSteps = 5;
+  final int _totalSteps = 6;
 
   late AnimationController _slideCtrl;
   late AnimationController _cupAnimCtrl;
-  late AnimationController _fillCtrl;
 
   late Animation<Offset> _slideIn;
-  late Animation<double> _fillAnim;
 
-  String? _selectedTopping;
+  final _coffeeTypes = ['Arabica', 'Liberica', 'Robusta', 'Excelsa'];
+  final _coffeeTypeColors = [
+    const Color(0xFFD9C9A3),
+    const Color(0xFF6B4226),
+    const Color(0xFFD9C9A3),
+    const Color(0xFFD9C9A3),
+  ];
+
   final _toppings = ['Pudding', 'Pearl', 'Caramel', 'Cream'];
   final _toppingIcons = [
     Icons.cake_outlined,
@@ -42,18 +47,13 @@ class _CustomCoffeeScreenState extends ConsumerState<CustomCoffeeScreen>
     );
     _cupAnimCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _fillCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 900),
     );
 
     _slideIn = Tween<Offset>(
       begin: const Offset(1, 0),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOutCubic));
-    _fillAnim = CurvedAnimation(parent: _fillCtrl, curve: Curves.easeInOut);
 
     _slideCtrl.forward();
     _cupAnimCtrl.forward();
@@ -63,7 +63,6 @@ class _CustomCoffeeScreenState extends ConsumerState<CustomCoffeeScreen>
   void dispose() {
     _slideCtrl.dispose();
     _cupAnimCtrl.dispose();
-    _fillCtrl.dispose();
     super.dispose();
   }
 
@@ -74,15 +73,16 @@ class _CustomCoffeeScreenState extends ConsumerState<CustomCoffeeScreen>
       setState(() => _step++);
       _slideCtrl.forward();
       _cupAnimCtrl.forward();
-      if (_step == 4) _fillCtrl.forward();
     }
   }
 
   void _goBack() {
     if (_step > 0) {
-      setState(() => _step--);
       _slideCtrl.reset();
+      _cupAnimCtrl.reset();
+      setState(() => _step--);
       _slideCtrl.forward();
+      _cupAnimCtrl.forward();
     } else {
       context.pop();
     }
@@ -157,27 +157,44 @@ class _CustomCoffeeScreenState extends ConsumerState<CustomCoffeeScreen>
   Widget _buildStep(CustomCoffeeOrder order) {
     switch (_step) {
       case 0:
-        return _TypeStep(order: order);
+        return _TypeStep(order: order, pourAnim: _cupAnimCtrl);
       case 1:
-        return _CupSizeStep(order: order);
+        return _CoffeeTypeStep(
+          order: order,
+          pourAnim: _cupAnimCtrl,
+          coffeeTypes: _coffeeTypes,
+          coffeeTypeColors: _coffeeTypeColors,
+        );
       case 2:
-        return _SugarStep(order: order);
+        return _CupSizeStep(order: order, pourAnim: _cupAnimCtrl);
       case 3:
+        return _SugarStep(order: order, pourAnim: _cupAnimCtrl);
+      case 4:
         return _ToppingStep(
           order: order,
-          selectedTopping: _selectedTopping,
+          pourAnim: _cupAnimCtrl,
           toppings: _toppings,
           toppingIcons: _toppingIcons,
           onSelect: (t) {
-            setState(() => _selectedTopping = t);
             ref.read(customCoffeeProvider.notifier).setTopping(t);
           },
         );
-      case 4:
-        return _ResultStep(order: order, fillAnim: _fillAnim);
+      case 5:
+        return _ResultStep(order: order, pourAnim: _cupAnimCtrl);
       default:
         return const SizedBox();
     }
+  }
+}
+
+double _sugarFillLevel(SugarLevel level) {
+  switch (level) {
+    case SugarLevel.less:
+      return 0.35;
+    case SugarLevel.normal:
+      return 0.55;
+    case SugarLevel.high:
+      return 0.75;
   }
 }
 
@@ -185,21 +202,46 @@ class _CupVisual extends StatelessWidget {
   final double height;
   final double fillLevel;
   final Color fillColor;
+  final Animation<double>? pourAnim;
 
   const _CupVisual({
-    this.height = 220,
+    this.height = 240,
     this.fillLevel = 0,
     this.fillColor = const Color(0xFFD4A574),
+    this.pourAnim,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      child: CustomPaint(
-        painter: _CupPainter(fillLevel: fillLevel, fillColor: fillColor),
-        size: Size(height * 0.65, height),
-      ),
+    if (pourAnim == null) {
+      return SizedBox(
+        height: height,
+        child: CustomPaint(
+          painter: _CupPainter(
+            fillLevel: fillLevel,
+            fillColor: fillColor,
+            pourProgress: 1,
+          ),
+          size: Size(height * 0.6, height),
+        ),
+      );
+    }
+    return AnimatedBuilder(
+      animation: pourAnim!,
+      builder: (context, child) {
+        final curved = Curves.easeOutCubic.transform(pourAnim!.value);
+        return SizedBox(
+          height: height,
+          child: CustomPaint(
+            painter: _CupPainter(
+              fillLevel: fillLevel * curved,
+              fillColor: fillColor,
+              pourProgress: pourAnim!.value,
+            ),
+            size: Size(height * 0.6, height),
+          ),
+        );
+      },
     );
   }
 }
@@ -207,38 +249,108 @@ class _CupVisual extends StatelessWidget {
 class _CupPainter extends CustomPainter {
   final double fillLevel;
   final Color fillColor;
+  final double pourProgress;
 
-  const _CupPainter({required this.fillLevel, required this.fillColor});
+  const _CupPainter({
+    required this.fillLevel,
+    required this.fillColor,
+    required this.pourProgress,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    final topW = w * 0.95;
-    final botW = w * 0.65;
-    final rimH = h * 0.06;
+    final topW = w * 0.98;
+    final botW = w * 0.62;
+    final rimH = h * 0.04;
 
     final bodyPath = Path()
       ..moveTo((w - topW) / 2, rimH)
-      ..lineTo((w - botW) / 2, h * 0.95)
-      ..quadraticBezierTo(w / 2, h, (w + botW) / 2, h * 0.95)
+      ..lineTo((w - botW) / 2, h * 0.94)
+      ..quadraticBezierTo(w / 2, h, (w + botW) / 2, h * 0.94)
       ..lineTo((w + topW) / 2, rimH)
       ..close();
 
-    if (fillLevel > 0) {
+    final baseShadow = Paint()
+      ..color = Colors.black.withValues(alpha: 0.06)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w / 2, h + 4),
+        width: botW * 0.9,
+        height: 8,
+      ),
+      baseShadow,
+    );
+
+    if (fillLevel > 0.01) {
       final fillTop = rimH + (h - rimH) * (1 - fillLevel);
       final fillPath = Path()
         ..moveTo((w - topW) / 2 + (topW - botW) / 2 * (1 - fillLevel), fillTop)
-        ..lineTo((w - botW) / 2, h * 0.95)
-        ..quadraticBezierTo(w / 2, h, (w + botW) / 2, h * 0.95)
+        ..lineTo((w - botW) / 2, h * 0.94)
+        ..quadraticBezierTo(w / 2, h, (w + botW) / 2, h * 0.94)
         ..lineTo((w + topW) / 2 - (topW - botW) / 2 * (1 - fillLevel), fillTop)
         ..close();
 
-      final fillPaint = Paint()..color = fillColor.withValues(alpha: 0.7);
+      final fillPaint = Paint()..color = fillColor.withValues(alpha: 0.75);
       canvas.save();
       canvas.clipPath(bodyPath);
       canvas.drawPath(fillPath, fillPaint);
+
+      final surfacePaint = Paint()
+        ..color = fillColor.withValues(alpha: 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      final leftX = (w - topW) / 2 + (topW - botW) / 2 * (1 - fillLevel);
+      final rightX = (w + topW) / 2 - (topW - botW) / 2 * (1 - fillLevel);
+      canvas.drawOval(
+        Rect.fromLTRB(leftX, fillTop - 3, rightX, fillTop + 3),
+        surfacePaint,
+      );
       canvas.restore();
+
+      if (pourProgress < 0.98) {
+        final splashPaint = Paint()
+          ..color = fillColor.withValues(alpha: (1 - pourProgress) * 0.6);
+        final centerX = (leftX + rightX) / 2;
+        canvas.drawCircle(
+          Offset(centerX, fillTop),
+          8 * (1 - pourProgress) + 2,
+          splashPaint,
+        );
+        canvas.drawCircle(
+          Offset(centerX - 14, fillTop + 2),
+          4 * (1 - pourProgress),
+          splashPaint,
+        );
+        canvas.drawCircle(
+          Offset(centerX + 14, fillTop + 2),
+          4 * (1 - pourProgress),
+          splashPaint,
+        );
+      }
+    }
+
+    if (pourProgress < 0.98) {
+      final fillTop = rimH + (h - rimH) * (1 - fillLevel);
+      final streamPaint = Paint()
+        ..color = fillColor.withValues(
+          alpha: (1 - pourProgress * 0.3).clamp(0.0, 1.0),
+        )
+        ..strokeWidth = 4
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(Offset(w / 2, 0), Offset(w / 2, fillTop), streamPaint);
+    }
+
+    final ribPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.04)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (final frac in [0.28, 0.5, 0.72]) {
+      final topX = (w - topW) / 2 + topW * frac;
+      final botX = (w - botW) / 2 + botW * frac;
+      canvas.drawLine(Offset(topX, rimH + 4), Offset(botX, h * 0.92), ribPaint);
     }
 
     final cupPaint = Paint()
@@ -248,23 +360,38 @@ class _CupPainter extends CustomPainter {
     canvas.drawPath(bodyPath, cupPaint);
 
     final rimPaint = Paint()
-      ..color = const Color(0xFFBBBBBB)
+      ..color = const Color(0xFFAAAAAA)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-    canvas.drawLine(
-      Offset((w - topW) / 2, rimH),
-      Offset((w + topW) / 2, rimH),
+      ..strokeWidth = 2.5;
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w / 2, rimH),
+        width: topW,
+        height: rimH * 1.4,
+      ),
       rimPaint,
     );
+
+    final glossPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round;
+    final glossPath = Path()
+      ..moveTo(w * 0.28, rimH + h * 0.1)
+      ..quadraticBezierTo(w * 0.24, h * 0.5, w * 0.3, h * 0.85);
+    canvas.drawPath(glossPath, glossPaint);
   }
 
   @override
-  bool shouldRepaint(_CupPainter old) => old.fillLevel != fillLevel;
+  bool shouldRepaint(_CupPainter old) =>
+      old.fillLevel != fillLevel || old.pourProgress != pourProgress;
 }
 
 class _TypeStep extends ConsumerWidget {
   final CustomCoffeeOrder order;
-  const _TypeStep({required this.order});
+  final Animation<double> pourAnim;
+  const _TypeStep({required this.order, required this.pourAnim});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -321,7 +448,83 @@ class _TypeStep extends ConsumerWidget {
           ),
         ),
         const Spacer(),
-        const _CupVisual(fillLevel: 0),
+        _CupVisual(fillLevel: 0.15, pourAnim: pourAnim),
+        const Spacer(),
+      ],
+    );
+  }
+}
+
+class _CoffeeTypeStep extends ConsumerWidget {
+  final CustomCoffeeOrder order;
+  final Animation<double> pourAnim;
+  final List<String> coffeeTypes;
+  final List<Color> coffeeTypeColors;
+
+  const _CoffeeTypeStep({
+    required this.order,
+    required this.pourAnim,
+    required this.coffeeTypes,
+    required this.coffeeTypeColors,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      children: [
+        const SizedBox(height: 24),
+        const Text(
+          'Coffee Type',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(coffeeTypes.length, (i) {
+            final active = coffeeTypes[i] == order.coffeeType;
+            return GestureDetector(
+              onTap: () => ref
+                  .read(customCoffeeProvider.notifier)
+                  .setCoffeeType(coffeeTypes[i]),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Column(
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: active
+                            ? AppColors.primaryDark
+                            : AppColors.cardBg,
+                      ),
+                      child: Icon(
+                        Icons.grain,
+                        color: active ? Colors.white : AppColors.textSecondary,
+                        size: 26,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      coffeeTypes[i],
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: active
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
+                        fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ),
+        const Spacer(),
+        _CupVisual(fillLevel: 0.3, pourAnim: pourAnim),
         const Spacer(),
       ],
     );
@@ -330,11 +533,18 @@ class _TypeStep extends ConsumerWidget {
 
 class _CupSizeStep extends ConsumerWidget {
   final CustomCoffeeOrder order;
-  const _CupSizeStep({required this.order});
+  final Animation<double> pourAnim;
+  const _CupSizeStep({required this.order, required this.pourAnim});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     const sizes = ['S', 'M', 'L'];
+    final cupHeight = order.cupSize == 'L'
+        ? 260.0
+        : order.cupSize == 'M'
+        ? 220.0
+        : 180.0;
+
     return Column(
       children: [
         const SizedBox(height: 24),
@@ -381,12 +591,9 @@ class _CupSizeStep extends ConsumerWidget {
           duration: const Duration(milliseconds: 400),
           curve: Curves.easeOut,
           child: _CupVisual(
-            height: order.cupSize == 'L'
-                ? 260
-                : order.cupSize == 'M'
-                ? 220
-                : 180,
-            fillLevel: 0,
+            height: cupHeight,
+            fillLevel: 0.3,
+            pourAnim: pourAnim,
           ),
         ),
         const Spacer(),
@@ -397,112 +604,108 @@ class _CupSizeStep extends ConsumerWidget {
 
 class _SugarStep extends ConsumerWidget {
   final CustomCoffeeOrder order;
-  const _SugarStep({required this.order});
+  final Animation<double> pourAnim;
+  const _SugarStep({required this.order, required this.pourAnim});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    double sliderVal = order.sugarLevel == SugarLevel.less
-        ? 0
+    final sliderVal = order.sugarLevel == SugarLevel.less
+        ? 0.0
         : order.sugarLevel == SugarLevel.normal
         ? 0.5
         : 1.0;
+    final fillLevel = _sugarFillLevel(order.sugarLevel);
 
-    final fillLevel = 0.1 + sliderVal * 0.5;
-
-    return StatefulBuilder(
-      builder: (context, setLocal) {
-        return Column(
-          children: [
-            const SizedBox(height: 24),
-            const Text(
-              'Sugar',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
+    return Column(
+      children: [
+        const SizedBox(height: 24),
+        const Text(
+          'Sugar',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 24),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            children: [
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor: AppColors.primary,
+                  inactiveTrackColor: AppColors.secondary,
+                  thumbColor: AppColors.primaryDark,
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 10,
+                  ),
+                  overlayShape: const RoundSliderOverlayShape(
+                    overlayRadius: 18,
+                  ),
+                  trackHeight: 4,
+                ),
+                child: Slider(
+                  value: sliderVal,
+                  onChanged: (v) {
+                    final level = v < 0.33
+                        ? SugarLevel.less
+                        : v < 0.66
+                        ? SugarLevel.normal
+                        : SugarLevel.high;
+                    ref
+                        .read(customCoffeeProvider.notifier)
+                        .setSugarLevel(level);
+                  },
+                ),
+              ),
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: AppColors.primary,
-                      inactiveTrackColor: AppColors.secondary,
-                      thumbColor: AppColors.primaryDark,
-                      thumbShape: const RoundSliderThumbShape(
-                        enabledThumbRadius: 10,
-                      ),
-                      overlayShape: const RoundSliderOverlayShape(
-                        overlayRadius: 18,
-                      ),
-                      trackHeight: 4,
-                    ),
-                    child: Slider(
-                      value: sliderVal,
-                      onChanged: (v) {
-                        setLocal(() => sliderVal = v);
-                        final level = v < 0.33
-                            ? SugarLevel.less
-                            : v < 0.66
-                            ? SugarLevel.normal
-                            : SugarLevel.high;
-                        ref
-                            .read(customCoffeeProvider.notifier)
-                            .setSugarLevel(level);
-                      },
+                  Text(
+                    'Less',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
                     ),
                   ),
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Less',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      Text(
-                        'Normal',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      Text(
-                        'High',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    'Normal',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  Text(
+                    'High',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
-            ),
-            const Spacer(),
-            _CupVisual(
-              fillLevel: fillLevel,
-              fillColor: Color.fromRGBO(212, 165, 116, 0.5 + sliderVal * 0.5),
-            ),
-            const Spacer(),
-          ],
-        );
-      },
+            ],
+          ),
+        ),
+        const Spacer(),
+        _CupVisual(
+          fillLevel: fillLevel,
+          fillColor: Color.fromRGBO(212, 165, 116, 0.5 + sliderVal * 0.5),
+          pourAnim: pourAnim,
+        ),
+        const Spacer(),
+      ],
     );
   }
 }
 
 class _ToppingStep extends StatelessWidget {
   final CustomCoffeeOrder order;
-  final String? selectedTopping;
+  final Animation<double> pourAnim;
   final List<String> toppings;
   final List<IconData> toppingIcons;
   final ValueChanged<String> onSelect;
 
   const _ToppingStep({
     required this.order,
-    required this.selectedTopping,
+    required this.pourAnim,
     required this.toppings,
     required this.toppingIcons,
     required this.onSelect,
@@ -521,12 +724,11 @@ class _ToppingStep extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(toppings.length, (i) {
-            final active = toppings[i] == selectedTopping;
+            final active = toppings[i] == order.topping;
             return GestureDetector(
               onTap: () => onSelect(toppings[i]),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.symmetric(horizontal: 8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Column(
                   children: [
                     AnimatedContainer(
@@ -566,7 +768,7 @@ class _ToppingStep extends StatelessWidget {
           }),
         ),
         const Spacer(),
-        const _CupVisual(fillLevel: 0.6),
+        _CupVisual(fillLevel: 0.6, pourAnim: pourAnim),
         const Spacer(),
       ],
     );
@@ -575,9 +777,9 @@ class _ToppingStep extends StatelessWidget {
 
 class _ResultStep extends StatelessWidget {
   final CustomCoffeeOrder order;
-  final Animation<double> fillAnim;
+  final Animation<double> pourAnim;
 
-  const _ResultStep({required this.order, required this.fillAnim});
+  const _ResultStep({required this.order, required this.pourAnim});
 
   @override
   Widget build(BuildContext context) {
@@ -589,12 +791,10 @@ class _ResultStep extends StatelessWidget {
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
         ),
         const Spacer(),
-        AnimatedBuilder(
-          animation: fillAnim,
-          builder: (context, child) => _CupVisual(
-            fillLevel: fillAnim.value * 0.75,
-            fillColor: const Color(0xFFC8864A),
-          ),
+        _CupVisual(
+          fillLevel: 0.75,
+          fillColor: const Color(0xFFC8864A),
+          pourAnim: pourAnim,
         ),
         const Spacer(),
         Padding(

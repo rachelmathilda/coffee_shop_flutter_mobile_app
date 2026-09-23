@@ -159,7 +159,7 @@ class CartScreen extends ConsumerWidget {
                     color: Colors.white,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
+                        color: Colors.black.withValues(alpha: 0.06),
                         blurRadius: 12,
                         offset: const Offset(0, -4),
                       ),
@@ -189,16 +189,9 @@ class CartScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
-                        onPressed: () {
-                          // Simulate payment
-                          final success = DateTime.now().second % 2 == 0;
-                          ref.read(cartProvider.notifier).clear();
-                          context.go(
-                            success
-                                ? '/transaction/success'
-                                : '/transaction/fail',
-                          );
-                        },
+                        onPressed: items.isEmpty
+                            ? null
+                            : () => context.push('/delivery'),
                         child: const Text('Continue'),
                       ),
                     ],

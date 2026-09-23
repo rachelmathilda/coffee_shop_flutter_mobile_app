@@ -5,13 +5,16 @@ import '../screens/onboarding/splash_screen.dart';
 import '../screens/onboarding/onboarding_screen.dart';
 import '../screens/auth/sign_in_screen.dart';
 import '../screens/auth/sign_up_screen.dart';
-import '../screens/auth/email_recovery_screen.dart';
-import '../screens/auth/otp_screen.dart';
-import '../screens/auth/change_password_screen.dart';
+import '../screens/home/home_screen.dart';
+import '../screens/profile/email_recovery_screen.dart';
+import '../screens/profile/change_password_screen.dart';
 import '../screens/catalog/catalog_screen.dart';
 import '../screens/product/product_detail_screen.dart';
 import '../screens/cart/cart_screen.dart';
 import '../screens/custom_coffee/custom_coffee_screen.dart';
+import '../screens/delivery/delivery_screen.dart';
+import '../screens/delivery/address_detail_screen.dart';
+import '../screens/payment/payment_screen.dart';
 import '../screens/transaction/success_screen.dart';
 import '../screens/transaction/fail_screen.dart';
 import '../screens/profile/edit_profile_screen.dart';
@@ -45,11 +48,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/auth/recovery',
         builder: (_, __) => const EmailRecoveryScreen(),
       ),
-      GoRoute(path: '/auth/otp', builder: (_, __) => const OtpScreen()),
-      GoRoute(
-        path: '/auth/change-password',
-        builder: (_, __) => const ChangePasswordScreen(),
-      ),
+      GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
       GoRoute(path: '/catalog', builder: (_, __) => const CatalogScreen()),
       GoRoute(
         path: '/product/:id',
@@ -62,6 +61,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/custom-coffee',
         builder: (_, __) => const CustomCoffeeScreen(),
+      ),
+      GoRoute(path: '/delivery', builder: (_, __) => const DeliveryScreen()),
+      GoRoute(
+        path: '/address-detail',
+        builder: (_, state) =>
+            AddressDetailScreen(initial: state.extra as DeliveryAddress?),
+      ),
+      GoRoute(
+        path: '/payment',
+        builder: (_, state) => PaymentScreen(total: state.extra as double),
       ),
       GoRoute(
         path: '/transaction/success',
@@ -78,6 +87,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile/language',
         builder: (_, __) => const LanguageScreen(),
+      ),
+      GoRoute(
+        path: '/profile/change-password',
+        builder: (_, __) => const ChangePasswordScreen(),
       ),
       GoRoute(path: '/discount', builder: (_, __) => const DiscountScreen()),
     ],
