@@ -57,7 +57,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
                     ),
                     decoration: BoxDecoration(
                       color: active
-                          ? AppColors.secondary.withOpacity(0.5)
+                          ? AppColors.secondary.withValues(alpha: 0.5)
                           : AppColors.cardBg,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(

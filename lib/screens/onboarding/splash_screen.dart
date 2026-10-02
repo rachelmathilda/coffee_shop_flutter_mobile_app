@@ -58,12 +58,13 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(seconds: 3));
     if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
-    final seen = prefs.getBool('onboarding_seen') ?? false;
     if (!mounted) return;
+    final seen = prefs.getBool('onboarding_seen') ?? false;
     if (seen) {
       context.go('/auth/sign-in');
     } else {
       await prefs.setBool('onboarding_seen', true);
+      if (!mounted) return;
       context.go('/onboarding');
     }
   }

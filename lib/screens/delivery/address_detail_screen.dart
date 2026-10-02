@@ -17,7 +17,6 @@ class AddressDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _AddressDetailScreenState extends ConsumerState<AddressDetailScreen> {
-  GoogleMapController? _mapController;
   LatLng _center = const LatLng(-6.2088, 106.8456);
   String _address = 'Move the map to set your location';
   bool _resolving = false;
@@ -92,7 +91,6 @@ class _AddressDetailScreenState extends ConsumerState<AddressDetailScreen> {
         children: [
           GoogleMap(
             initialCameraPosition: CameraPosition(target: _center, zoom: 16),
-            onMapCreated: (c) => _mapController = c,
             onCameraMove: (position) => _center = position.target,
             onCameraIdle: () => _resolveAddress(_center),
             myLocationButtonEnabled: false,

@@ -59,7 +59,7 @@ class _SuccessScreenState extends State<SuccessScreen>
                       height: 160,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.secondary.withOpacity(0.4),
+                        color: AppColors.secondary.withValues(alpha: 0.4),
                       ),
                     ),
                     Container(
@@ -67,7 +67,7 @@ class _SuccessScreenState extends State<SuccessScreen>
                       height: 110,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.secondary.withOpacity(0.7),
+                        color: AppColors.secondary.withValues(alpha: 0.7),
                       ),
                     ),
                     Container(
@@ -193,7 +193,7 @@ class _FailScreenState extends State<FailScreen>
                       height: 160,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.15),
+                        color: Colors.white.withValues(alpha: 0.15),
                       ),
                     ),
                     Container(
@@ -201,7 +201,7 @@ class _FailScreenState extends State<FailScreen>
                       height: 110,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.25),
+                        color: Colors.white.withValues(alpha: 0.25),
                       ),
                     ),
                     Container(
@@ -209,7 +209,7 @@ class _FailScreenState extends State<FailScreen>
                       height: 68,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                       child: const Icon(
                         Icons.close,

@@ -397,7 +397,9 @@ class _DiscountTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Future.microtask(() => context.push('/discount'));
+    Future.microtask(() {
+      if (context.mounted) context.push('/discount');
+    });
     return const SizedBox.shrink();
   }
 }
@@ -407,7 +409,9 @@ class _OrderTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Future.microtask(() => context.push('/cart'));
+    Future.microtask(() {
+      if (context.mounted) context.push('/cart');
+    });
     return const SizedBox.shrink();
   }
 }
@@ -417,7 +421,9 @@ class _ProfileTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Future.microtask(() => context.push('/profile/edit'));
+    Future.microtask(() {
+      if (context.mounted) context.push('/profile/edit');
+    });
     return const SizedBox.shrink();
   }
 }
