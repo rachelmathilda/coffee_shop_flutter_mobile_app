@@ -1,8 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../providers/providers.dart';
-import '../../theme/app_theme.dart';
+import '../../services/app_exception.dart';
+import '../../widgets/avatar.dart';
+import '../../widgets/brown_field.dart';
+import '../../widgets/buttons.dart';
+import '../../widgets/reauth.dart';
 import '../../widgets/wave_header.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
@@ -14,70 +20,63 @@ class EditProfileScreen extends ConsumerStatefulWidget {
 
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _nameCtrl = TextEditingController();
-  final _usernameCtrl = TextEditingController();
+  final _userCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
+  String? _newAvatar;
   bool _loading = false;
-  bool _loadingProfile = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProfile();
-  }
-
-  Future<void> _loadProfile() async {
-    final user = ref.read(authServiceProvider).currentUser;
-    if (user == null) {
-      setState(() => _loadingProfile = false);
-      return;
-    }
-    try {
-      final data = await ref.read(authServiceProvider).getUserProfile(user.uid);
-      if (mounted && data != null) {
-        _nameCtrl.text = data['name'] ?? '';
-        _usernameCtrl.text = data['username'] ?? '';
-        _emailCtrl.text = data['email'] ?? user.email ?? '';
-        _phoneCtrl.text = data['phone'] ?? '';
-      } else if (mounted) {
-        _emailCtrl.text = user.email ?? '';
-      }
-    } finally {
-      if (mounted) setState(() => _loadingProfile = false);
-    }
-  }
+  bool _filled = false;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _usernameCtrl.dispose();
+    _userCtrl.dispose();
     _emailCtrl.dispose();
-    _phoneCtrl.dispose();
     super.dispose();
   }
 
+  Future<void> _pick() async {
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 320,
+      maxHeight: 320,
+      imageQuality: 70,
+    );
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+    setState(() => _newAvatar = 'data:image/jpeg;base64,${base64Encode(bytes)}');
+  }
+
   Future<void> _save() async {
-    final user = ref.read(authServiceProvider).currentUser;
+    final t = ref.read(stringsProvider);
+    final user = ref.read(currentUserProvider).valueOrNull;
     if (user == null) return;
+    if (_nameCtrl.text.trim().isEmpty || _userCtrl.text.trim().isEmpty) {
+      showMessage(context, t('fillAllFields'));
+      return;
+    }
+    final email = _emailCtrl.text.trim();
+    if (email.isNotEmpty && !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      showMessage(context, t('invalidEmail'));
+      return;
+    }
     setState(() => _loading = true);
     try {
-      await ref.read(authServiceProvider).saveUserProfile(user.uid, {
-        'name': _nameCtrl.text.trim(),
-        'username': _usernameCtrl.text.trim(),
-        'email': _emailCtrl.text.trim(),
-        'phone': _phoneCtrl.text.trim(),
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Profile updated')));
-      }
+      final sent = await withRecentLogin(
+        context,
+        ref,
+        () => ref.read(authServiceProvider).updateProfile(
+              current: user,
+              name: _nameCtrl.text,
+              username: _userCtrl.text,
+              email: email,
+              avatar: _newAvatar,
+            ),
+      );
+      if (!mounted) return;
+      showMessage(context, sent ? t('verificationSent') : t('profileUpdated'));
+      context.pop();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
+      if (mounted) showMessage(context, errorText(e, t));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -85,165 +84,61 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = ref.watch(stringsProvider);
+    final user = ref.watch(currentUserProvider).valueOrNull;
+    if (user != null && !_filled) {
+      _filled = true;
+      _nameCtrl.text = user.name;
+      _userCtrl.text = user.username;
+      _emailCtrl.text = user.pendingEmail.isNotEmpty ? user.pendingEmail : user.email;
+    }
+    final bottom = MediaQuery.of(context).padding.bottom;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white,
       body: Column(
         children: [
-          const WaveHeader(title: 'Edit Profile'),
+          WaveHeader(title: t('editProfile')),
           Expanded(
-            child: _loadingProfile
-                ? const Center(child: CircularProgressIndicator())
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-                    child: Column(
-                      children: [
-                        Stack(
-                          children: [
-                            Container(
-                              width: 90,
-                              height: 90,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: AppColors.secondary,
-                                image: const DecorationImage(
-                                  image: NetworkImage(
-                                    'https://api.dicebear.com/7.x/adventurer/png?seed=grind',
-                                  ),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(23, 10, 23, 20),
+              children: [
+                Center(
+                  child: GestureDetector(
+                    onTap: _pick,
+                    child: SizedBox(
+                      width: 124,
+                      height: 124,
+                      child: Stack(
+                        children: [
+                          Avatar(data: _newAvatar ?? user?.avatar ?? '', size: 120),
+                          Positioned(
+                            right: 0,
+                            bottom: 8,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                              child: const Icon(Icons.photo_camera_outlined, size: 26, color: Colors.black),
                             ),
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: Container(
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  color: AppColors.textPrimary,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.camera_alt_outlined,
-                                  color: Colors.white,
-                                  size: 14,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
-                        TextField(
-                          controller: _nameCtrl,
-                          decoration: const InputDecoration(hintText: 'Name'),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _usernameCtrl,
-                          decoration: const InputDecoration(
-                            hintText: 'Username',
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _emailCtrl,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(hintText: 'Email'),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _phoneCtrl,
-                          keyboardType: TextInputType.phone,
-                          decoration: const InputDecoration(
-                            hintText: 'Phone Number',
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        _ProfileOption(
-                          icon: Icons.language,
-                          label: 'Language',
-                          onTap: () => context.push('/profile/language'),
-                        ),
-                        const SizedBox(height: 8),
-                        _ProfileOption(
-                          icon: Icons.lock_outline,
-                          label: 'Change Password',
-                          onTap: () => context.push('/profile/change-password'),
-                        ),
-                        const SizedBox(height: 8),
-                        _ProfileOption(
-                          icon: Icons.logout,
-                          label: 'Sign Out',
-                          color: AppColors.error,
-                          onTap: () async {
-                            await ref.read(authServiceProvider).signOut();
-                            if (context.mounted) context.go('/auth/sign-in');
-                          },
-                        ),
-                        const SizedBox(height: 32),
-                        ElevatedButton(
-                          onPressed: _loading ? null : _save,
-                          child: _loading
-                              ? const CircularProgressIndicator(
-                                  color: Colors.white,
-                                )
-                              : const Text('Save'),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
+                ),
+                const SizedBox(height: 34),
+                BrownField(controller: _nameCtrl, hint: t('name')),
+                const SizedBox(height: 32),
+                BrownField(controller: _userCtrl, hint: 'Username'),
+                const SizedBox(height: 32),
+                BrownField(controller: _emailCtrl, hint: t('email'), keyboardType: TextInputType.emailAddress),
+              ],
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(23, 0, 23, 36 + bottom),
+            child: PrimaryButton(label: t('save'), onTap: _save, loading: _loading),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ProfileOption extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final Color? color;
-
-  const _ProfileOption({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final c = color ?? AppColors.textPrimary;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFEEE0D0)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: c, size: 20),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: TextStyle(color: c, fontWeight: FontWeight.w500),
-            ),
-            const Spacer(),
-            Icon(
-              Icons.chevron_right,
-              color: c.withValues(alpha: 0.5),
-              size: 18,
-            ),
-          ],
-        ),
       ),
     );
   }

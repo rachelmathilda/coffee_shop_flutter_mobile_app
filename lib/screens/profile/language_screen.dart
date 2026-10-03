@@ -1,115 +1,97 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../l10n/strings.dart';
+import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/buttons.dart';
+import '../../widgets/flag.dart';
 import '../../widgets/wave_header.dart';
 
-class _Language {
-  final String name;
-  final String flag;
-  const _Language(this.name, this.flag);
-}
-
-class LanguageScreen extends StatefulWidget {
+class LanguageScreen extends ConsumerStatefulWidget {
   const LanguageScreen({super.key});
 
   @override
-  State<LanguageScreen> createState() => _LanguageScreenState();
+  ConsumerState<LanguageScreen> createState() => _LanguageScreenState();
 }
 
-class _LanguageScreenState extends State<LanguageScreen> {
-  String _selected = 'English';
+class _LanguageScreenState extends ConsumerState<LanguageScreen> {
+  late String _selected;
+  bool _loading = false;
 
-  final _languages = const [
-    _Language('Bahasa Indonesia', '🇮🇩'),
-    _Language('Brazilian Portuguese', '🇧🇷'),
-    _Language('English', '🇬🇧'),
-    _Language('French', '🇫🇷'),
-    _Language('German', '🇩🇪'),
-    _Language('Hangul', '🇰🇷'),
-    _Language('Hindi', '🇮🇳'),
-    _Language('Italian', '🇮🇹'),
-    _Language('Japanese', '🇯🇵'),
-    _Language('Spanish', '🇪🇸'),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _selected = ref.read(languageProvider);
+  }
+
+  Future<void> _save() async {
+    setState(() => _loading = true);
+    await ref.read(languageProvider.notifier).change(_selected);
+    final user = ref.read(authServiceProvider).currentUser;
+    if (user != null) {
+      try {
+        await ref.read(authServiceProvider).setLanguage(user.uid, _selected);
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    setState(() => _loading = false);
+    context.pop();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final t = ref.watch(stringsProvider);
+    final bottom = MediaQuery.of(context).padding.bottom;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white,
       body: Column(
         children: [
-          const WaveHeader(title: 'Language'),
+          WaveHeader(title: t('language')),
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
-              itemCount: _languages.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, i) {
-                final lang = _languages[i];
-                final active = lang.name == _selected;
-                return GestureDetector(
-                  onTap: () => setState(() => _selected = lang.name),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: active
-                          ? AppColors.secondary.withValues(alpha: 0.5)
-                          : AppColors.cardBg,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: active ? AppColors.primary : Colors.transparent,
-                        width: 1.2,
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(23, 6, 23, 20),
+              itemCount: supportedLanguages.length,
+              itemBuilder: (_, i) {
+                final code = supportedLanguages[i];
+                final selected = code == _selected;
+                return Material(
+                  color: i.isEven ? AppColors.beige : Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => setState(() => _selected = code),
+                    child: SizedBox(
+                      height: 83,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 29, right: 28),
+                        child: Row(
+                          children: [
+                            FlagIcon(code: code),
+                            const SizedBox(width: 24),
+                            Expanded(child: Text(languageNames[code]!, style: AppText.s(16, spacing: 0.3))),
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: AppColors.textBrown, width: 1.6),
+                              ),
+                              alignment: Alignment.center,
+                              child: selected
+                                  ? Container(
+                                      width: 10,
+                                      height: 10,
+                                      decoration: const BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: AppColors.textBrown,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Text(lang.flag, style: const TextStyle(fontSize: 28)),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(
-                            lang.name,
-                            style: TextStyle(
-                              fontWeight: active
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              fontSize: 14,
-                              color: active
-                                  ? AppColors.primary
-                                  : AppColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: active
-                                  ? AppColors.primary
-                                  : AppColors.textLight,
-                              width: 1.5,
-                            ),
-                          ),
-                          child: active
-                              ? Center(
-                                  child: Container(
-                                    width: 10,
-                                    height: 10,
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                )
-                              : null,
-                        ),
-                      ],
                     ),
                   ),
                 );
@@ -117,11 +99,8 @@ class _LanguageScreenState extends State<LanguageScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-            child: ElevatedButton(
-              onPressed: () => context.pop(),
-              child: const Text('Save'),
-            ),
+            padding: EdgeInsets.fromLTRB(23, 0, 23, 30 + bottom),
+            child: PrimaryButton(label: t('save'), onTap: _save, loading: _loading),
           ),
         ],
       ),

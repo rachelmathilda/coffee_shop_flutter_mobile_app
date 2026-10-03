@@ -1,35 +1,73 @@
-import 'coffee.dart';
-
 class CartItem {
-  final Coffee coffee;
-  int quantity;
-  String size;
-  String coffeeType;
-  List<String> addIns;
+  final String key;
+  final String coffeeId;
+  final String name;
+  final String image;
+  final double unitPrice;
+  final int quantity;
+  final Map<String, dynamic> options;
+  final bool isCustom;
 
-  CartItem({
-    required this.coffee,
-    this.quantity = 1,
-    this.size = 'M',
-    this.coffeeType = 'Arabica',
-    this.addIns = const [],
+  const CartItem({
+    required this.key,
+    required this.coffeeId,
+    required this.name,
+    required this.image,
+    required this.unitPrice,
+    required this.quantity,
+    this.options = const {},
+    this.isCustom = false,
   });
 
-  double get totalPrice =>
-      coffee.price * quantity + (addIns.isNotEmpty ? 0.80 : 0);
+  double get totalPrice => unitPrice * quantity;
 
-  CartItem copyWith({
-    int? quantity,
-    String? size,
-    String? coffeeType,
-    List<String>? addIns,
-  }) {
+  String get optionSummary {
+    final parts = <String>[];
+    options.forEach((k, v) {
+      if (v == null) return;
+      if (v is List) {
+        if (v.isNotEmpty) parts.add(v.join(', '));
+      } else if ('$v'.isNotEmpty) {
+        parts.add('$v');
+      }
+    });
+    return parts.join(' · ');
+  }
+
+  CartItem copyWith({int? quantity}) {
     return CartItem(
-      coffee: coffee,
+      key: key,
+      coffeeId: coffeeId,
+      name: name,
+      image: image,
+      unitPrice: unitPrice,
       quantity: quantity ?? this.quantity,
-      size: size ?? this.size,
-      coffeeType: coffeeType ?? this.coffeeType,
-      addIns: addIns ?? this.addIns,
+      options: options,
+      isCustom: isCustom,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'key': key,
+        'coffeeId': coffeeId,
+        'name': name,
+        'image': image,
+        'unitPrice': unitPrice,
+        'quantity': quantity,
+        'options': options,
+        'isCustom': isCustom,
+      };
+
+  factory CartItem.fromJson(Map<String, dynamic> j) {
+    return CartItem(
+      key: j['key'] as String,
+      coffeeId: (j['coffeeId'] ?? '') as String,
+      name: (j['name'] ?? '') as String,
+      image: (j['image'] ?? '') as String,
+      unitPrice: ((j['unitPrice'] ?? 0) as num).toDouble(),
+      quantity: ((j['quantity'] ?? 1) as num).toInt(),
+      options: Map<String, dynamic>.from((j['options'] ?? {}) as Map),
+      isCustom: (j['isCustom'] ?? false) as bool,
     );
   }
 }

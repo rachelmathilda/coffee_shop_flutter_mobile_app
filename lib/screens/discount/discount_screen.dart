@@ -1,161 +1,175 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
+import '../../services/app_exception.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/buttons.dart';
 
 class DiscountScreen extends ConsumerWidget {
   const DiscountScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final discounts = ref.watch(discountCatalogProvider);
+    final t = ref.watch(stringsProvider);
+    final discounts = ref.watch(discountsProvider);
+    final user = ref.watch(currentUserProvider).valueOrNull;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios,
-            color: AppColors.textPrimary,
-            size: 20,
-          ),
-          onPressed: () => context.pop(),
+    return SafeArea(
+      bottom: false,
+      child: discounts.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: AppColors.brown)),
+        error: (e, _) => Center(child: Text(t('genericError'))),
+        data: (list) => ListView.separated(
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 110),
+          itemCount: list.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 24),
+          itemBuilder: (_, i) {
+            final d = list[i];
+            final used = user?.usedDiscounts.contains(d.id) ?? false;
+            final claimed = user?.claimedDiscountId == d.id;
+            return _Coupon(
+              discount: d,
+              used: used,
+              claimed: claimed,
+              onClaim: () async {
+                if (user == null) return;
+                try {
+                  await ref.read(authServiceProvider).claimDiscount(user.uid, d.id);
+                  if (context.mounted) showMessage(context, t('dealClaimed'));
+                } catch (e) {
+                  if (context.mounted) showMessage(context, errorText(e, t));
+                }
+              },
+            );
+          },
         ),
-        title: const Text(
-          'Discounts',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: discounts.when(
-        data: (items) {
-          if (items.isEmpty) {
-            return const Center(child: Text('no discounts yet'));
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 14),
-            itemBuilder: (context, i) => _DiscountCard(discount: items[i]),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) =>
-            Center(child: Text('couldn\'t load discounts: $err')),
       ),
     );
   }
 }
 
-class _DiscountCard extends StatelessWidget {
+class _Coupon extends ConsumerWidget {
   final Discount discount;
-  const _DiscountCard({required this.discount});
+  final bool used;
+  final bool claimed;
+  final VoidCallback onClaim;
+
+  const _Coupon({required this.discount, required this.used, required this.claimed, required this.onClaim});
 
   @override
-  Widget build(BuildContext context) {
-    final fmt = DateFormat('MM/dd/yyyy');
-    return Container(
-      height: 100,
-      decoration: BoxDecoration(
-        color: AppColors.cardBg,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 110,
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.horizontal(left: Radius.circular(16)),
-            ),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(
-                  discount.label,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.primaryDark,
-                    height: 1.2,
-                  ),
-                ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(stringsProvider);
+    final d = discount;
+    final expired = d.isExpired;
+    final disabled = used || expired || claimed;
+    final label = used
+        ? t('used')
+        : expired
+            ? t('expiredDeal')
+            : claimed
+                ? t('claimed')
+                : t('getDeal');
+    final valueText = d.value % 1 == 0 ? d.value.toStringAsFixed(0) : d.value.toString();
+    final buyGet = t('buyGet').split('\n');
+
+    return ClipPath(
+      clipper: _NotchClipper(),
+      child: Container(
+        height: 176,
+        color: AppColors.creamLight,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 134,
+              child: Center(
+                child: d.isBogo
+                    ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(buyGet.first, style: AppText.s(24, weight: FontWeight.w700, color: AppColors.textBrown)),
+                          if (buyGet.length > 1)
+                            Text(buyGet[1], style: AppText.s(32, weight: FontWeight.w700, color: AppColors.textBrown)),
+                        ],
+                      )
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('$valueText%', style: AppText.s(32, weight: FontWeight.w700, color: AppColors.textBrown)),
+                          Text(t('off'), style: AppText.s(32, color: AppColors.textBrown, height: 1.1)),
+                        ],
+                      ),
               ),
             ),
-          ),
-          CustomPaint(size: const Size(1, 100), painter: _DashedLinePainter()),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Valid Until:\n${fmt.format(discount.validUntil)}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                      height: 1.5,
+            const SizedBox(width: 1, height: 160, child: CustomPaint(painter: _DashPainter())),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 30, right: 44),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(t('validUntil'), style: AppText.s(16, color: AppColors.terracottaLight)),
+                    Text(
+                      DateFormat('dd/MM/yyyy').format(d.validUntil),
+                      style: AppText.s(16, color: AppColors.terracottaLight),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  GestureDetector(
-                    onTap: () => context.pop(),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        'get deal',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: 157,
+                      height: 37,
+                      child: Material(
+                        color: disabled && !claimed ? AppColors.sandDark : AppColors.terracottaLight,
+                        borderRadius: BorderRadius.circular(8),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: disabled ? null : onClaim,
+                          child: Center(
+                            child: Text(label, style: AppText.s(16, color: Colors.white)),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _DashedLinePainter extends CustomPainter {
+class _NotchClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final rect = Path()
+      ..addRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(10)));
+    final notch = Path()..addOval(Rect.fromCircle(center: Offset(size.width + 2, size.height / 2), radius: 26));
+    return Path.combine(PathOperation.difference, rect, notch);
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+class _DashPainter extends CustomPainter {
+  const _DashPainter();
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFCCB89A)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    const dashH = 6.0;
-    const gap = 4.0;
+    final p = Paint()
+      ..color = AppColors.terracottaLight
+      ..strokeWidth = 2;
     double y = 0;
     while (y < size.height) {
-      canvas.drawLine(Offset(0, y), Offset(0, y + dashH), paint);
-      y += dashH + gap;
+      canvas.drawLine(Offset(0, y), Offset(0, y + 7), p);
+      y += 12;
     }
   }
 
   @override
-  bool shouldRepaint(_DashedLinePainter old) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

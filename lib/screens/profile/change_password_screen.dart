@@ -2,104 +2,108 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/providers.dart';
+import '../../services/app_exception.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/brown_field.dart';
+import '../../widgets/buttons.dart';
+import '../../widgets/reauth.dart';
+import '../../widgets/wave_header.dart';
 
 class ChangePasswordScreen extends ConsumerStatefulWidget {
   const ChangePasswordScreen({super.key});
 
   @override
-  ConsumerState<ChangePasswordScreen> createState() =>
-      _ChangePasswordScreenState();
+  ConsumerState<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
 }
 
 class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
-  final _passwordCtrl = TextEditingController();
+  final _pwCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
+  bool _obscure = true;
   bool _loading = false;
 
-  Future<void> _submit() async {
-    if (_passwordCtrl.text != _confirmCtrl.text) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
+  @override
+  void dispose() {
+    _pwCtrl.dispose();
+    _confirmCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final t = ref.read(stringsProvider);
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+    if (_pwCtrl.text.length < 6) {
+      showMessage(context, t('passwordTooShort'));
+      return;
+    }
+    if (_pwCtrl.text != _confirmCtrl.text) {
+      showMessage(context, t('passwordMismatch'));
       return;
     }
     setState(() => _loading = true);
     try {
-      await ref.read(authServiceProvider).updatePassword(_passwordCtrl.text);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Password updated')));
-        context.pop();
-      }
+      final otp = ref.read(otpServiceProvider);
+      if (!await otp.isVerified(user.uid)) throw const AppException('otpExpired');
+      if (!mounted) return;
+      await withRecentLogin(context, ref, () => ref.read(authServiceProvider).updatePassword(_pwCtrl.text));
+      await otp.clear(user.uid);
+      if (!mounted) return;
+      showMessage(context, t('passwordUpdated'));
+      ref.read(tabIndexProvider.notifier).state = 3;
+      context.go('/home');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
+      if (mounted) showMessage(context, errorText(e, t));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
-  void dispose() {
-    _passwordCtrl.dispose();
-    _confirmCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final t = ref.watch(stringsProvider);
+    final bottom = MediaQuery.of(context).padding.bottom;
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios,
-            color: AppColors.textPrimary,
-            size: 20,
+      backgroundColor: Colors.white,
+      body: Column(
+        children: [
+          WaveHeader(title: t('newPassword')),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(23, 54, 23, 20),
+              children: [
+                Center(child: Text(t('resetPassword'), style: AppText.s(24, weight: FontWeight.w500, spacing: 0.5))),
+                const SizedBox(height: 10),
+                Center(
+                  child: Text(
+                    t('enterNewPassword'),
+                    textAlign: TextAlign.center,
+                    style: AppText.s(16, color: const Color(0xFF9A9A9A), spacing: 0.5),
+                  ),
+                ),
+                const SizedBox(height: 40),
+                BrownField(
+                  controller: _pwCtrl,
+                  hint: t('newPasswordField'),
+                  icon: Icons.lock_outline,
+                  obscure: _obscure,
+                  onToggle: () => setState(() => _obscure = !_obscure),
+                ),
+                const SizedBox(height: 24),
+                BrownField(
+                  controller: _confirmCtrl,
+                  hint: t('confirmPassword'),
+                  icon: Icons.lock_outline,
+                  obscure: _obscure,
+                ),
+              ],
+            ),
           ),
-          onPressed: () => context.pop(),
-        ),
-        title: const Text(
-          'Change Password',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w600,
+          Padding(
+            padding: EdgeInsets.fromLTRB(23, 0, 23, 44 + bottom),
+            child: PrimaryButton(label: t('save'), onTap: _save, loading: _loading),
           ),
-        ),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: _passwordCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'new password'),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _confirmCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'confirm password'),
-            ),
-            const SizedBox(height: 28),
-            ElevatedButton(
-              onPressed: _loading ? null : _submit,
-              child: _loading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('save password'),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }

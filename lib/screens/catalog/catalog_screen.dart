@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_image.dart';
+
+const defaultOptions = <String, dynamic>{
+  'size': 'S',
+  'type': 'Arabica',
+  'addIns': <String>[],
+};
 
 class CatalogScreen extends ConsumerStatefulWidget {
   const CatalogScreen({super.key});
@@ -14,354 +20,265 @@ class CatalogScreen extends ConsumerStatefulWidget {
 }
 
 class _CatalogScreenState extends ConsumerState<CatalogScreen> {
-  int _navIndex = 0;
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: IndexedStack(
-        index: _navIndex,
-        children: const [
-          _CatalogBody(),
-          _DiscountTab(),
-          _OrderTab(),
-          _ProfileTab(),
-        ],
-      ),
-      bottomNavigationBar: _BottomNav(
-        currentIndex: _navIndex,
-        onTap: (i) => setState(() => _navIndex = i),
-      ),
-    );
-  }
-}
-
-class _CatalogBody extends ConsumerWidget {
-  const _CatalogBody();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final coffees = ref.watch(filteredCatalogProvider);
-    final cart = ref.watch(cartProvider);
-
-    return Stack(
-      children: [
-        SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: TextField(
-                  onChanged: (v) =>
-                      ref.read(searchQueryProvider.notifier).state = v,
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(
-                      Icons.search,
-                      color: AppColors.textSecondary,
-                    ),
-                    hintText: 'Search',
-                    filled: true,
-                    fillColor: AppColors.cardBg,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
-                    ),
+    final t = ref.watch(stringsProvider);
+    final coffees = ref.watch(filteredCoffeesProvider);
+    return SafeArea(
+      bottom: false,
+      child: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
+            sliver: SliverList.list(
+              children: [
+                Container(
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: AppColors.searchBg,
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.search,
+                        size: 30,
+                        color: AppColors.charcoal,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchCtrl,
+                          onChanged: (v) =>
+                              ref.read(searchQueryProvider.notifier).state = v,
+                          style: AppText.s(20),
+                          textInputAction: TextInputAction.search,
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            isCollapsed: true,
+                            hintText: t('search'),
+                            hintStyle: AppText.s(20),
+                          ),
+                        ),
+                      ),
+                      if (_searchCtrl.text.isNotEmpty)
+                        GestureDetector(
+                          onTap: () {
+                            _searchCtrl.clear();
+                            ref.read(searchQueryProvider.notifier).state = '';
+                            setState(() {});
+                          },
+                          child: const Icon(
+                            Icons.close,
+                            color: AppColors.charcoal,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 4,
-                ),
-                child: GestureDetector(
-                  onTap: () => context.push('/custom-coffee'),
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: () {
+                    ref.read(customCoffeeProvider.notifier).state =
+                        const CustomCoffeeOrder();
+                    context.push('/custom-coffee');
+                  },
                   child: Container(
-                    padding: const EdgeInsets.all(16),
+                    height: 94,
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                      color: AppColors.cream,
+                      borderRadius: BorderRadius.circular(10),
                     ),
+                    padding: const EdgeInsets.all(11),
                     child: Row(
                       children: [
                         Container(
-                          width: 48,
-                          height: 48,
+                          width: 108,
                           decoration: BoxDecoration(
-                            color: AppColors.cardBg,
-                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(
-                            Icons.coffee,
-                            color: AppColors.primary,
-                            size: 28,
+                            Icons.coffee_rounded,
+                            size: 52,
+                            color: Colors.black,
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        const Text(
-                          'Custom My Own Coffee',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                        Expanded(
+                          child: Center(
+                            child: Text(
+                              t('customMyOwnCoffee'),
+                              style: AppText.s(16),
+                            ),
                           ),
-                        ),
-                        const Spacer(),
-                        const Icon(
-                          Icons.chevron_right,
-                          color: AppColors.textSecondary,
                         ),
                       ],
                     ),
                   ),
                 ),
-              ),
-              Expanded(
-                child: coffees.when(
-                  data: (list) => GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 0.82,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                        ),
-                    itemCount: list.length,
-                    itemBuilder: (ctx, i) => _CoffeeCard(coffee: list[i]),
-                  ),
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (err, stack) =>
-                      Center(child: Text('couldn\'t load coffee: $err')),
-                ),
-              ),
-            ],
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
-        ),
-        if (cart.isNotEmpty)
-          Positioned(
-            bottom: 60,
-            left: 16,
-            right: 16,
-            child: GestureDetector(
-              onTap: () => context.push('/cart'),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+          coffees.when(
+            loading: () => const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(40),
+                child: Center(
+                  child: CircularProgressIndicator(color: AppColors.brown),
                 ),
-                decoration: BoxDecoration(
-                  color: AppColors.cardBg,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 12,
-                    ),
-                  ],
+              ),
+            ),
+            error: (e, _) => SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(40),
+                child: Center(child: Text(t('genericError'))),
+              ),
+            ),
+            data: (list) => SliverPadding(
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 240),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 177 / 212,
                 ),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => ref.read(cartProvider.notifier).clear(),
-                      child: const Icon(Icons.close, size: 18),
-                    ),
-                    const SizedBox(width: 12),
-                    CachedNetworkImage(
-                      imageUrl: cart.first.coffee.imageUrl,
-                      width: 40,
-                      height: 40,
-                      fit: BoxFit.cover,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            cart.first.coffee.name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                          Text(
-                            '\$ ${cart.first.coffee.price.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        _QtyBtn(
-                          icon: Icons.remove,
-                          onTap: () => ref
-                              .read(cartProvider.notifier)
-                              .decrement(cart.first.coffee.id),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Text(
-                            '${cart.first.quantity}',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                        _QtyBtn(
-                          icon: Icons.add,
-                          onTap: () => ref
-                              .read(cartProvider.notifier)
-                              .increment(cart.first.coffee.id),
-                        ),
-                      ],
-                    ),
-                  ],
+                delegate: SliverChildBuilderDelegate(
+                  (_, i) => CoffeeCard(coffee: list[i]),
+                  childCount: list.length,
                 ),
               ),
             ),
           ),
-        if (cart.isNotEmpty)
-          Positioned(
-            bottom: 8,
-            left: 16,
-            right: 16,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryDark,
-                minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              onPressed: () => context.push('/cart'),
-              child: const Text('Checkout'),
-            ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _CoffeeCard extends ConsumerWidget {
+class CoffeeCard extends ConsumerWidget {
   final Coffee coffee;
-  const _CoffeeCard({required this.coffee});
+  const CoffeeCard({super.key, required this.coffee});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cartItems = ref.watch(cartProvider);
-    final inCart = cartItems.where((c) => c.coffee.id == coffee.id).toList();
-    final qty = inCart.isEmpty ? 0 : inCart.first.quantity;
+    final key = CartNotifier.buildKey(coffee.id, defaultOptions);
+    final item = ref.watch(
+      cartProvider.select((c) => c.where((i) => i.key == key).firstOrNull),
+    );
+    final cart = ref.read(cartProvider.notifier);
+
+    void add() {
+      final k = cart.add(
+        coffeeId: coffee.id,
+        name: coffee.name,
+        image: coffee.image,
+        unitPrice: coffee.price,
+        options: Map<String, dynamic>.from(defaultOptions),
+      );
+      ref.read(lastCartKeyProvider.notifier).state = k;
+    }
 
     return GestureDetector(
-      onTap: () => context.push('/product/${coffee.id}', extra: coffee),
+      onTap: () => context.push('/product', extra: coffee),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          color: AppColors.cream,
+          borderRadius: BorderRadius.circular(10),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
-                child: CachedNetworkImage(
-                  imageUrl: coffee.imageUrl,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              padding: const EdgeInsets.fromLTRB(11, 11, 11, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Expanded(
+                    flex: 113,
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.all(8),
+                      child: Hero(
+                        tag: 'coffee_${coffee.id}',
+                        child: AppImage(coffee.image),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
                   Row(
                     children: [
                       Expanded(
                         child: Text(
                           coffee.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          style: AppText.s(16),
                         ),
                       ),
-                      const Icon(Icons.star, color: AppColors.star, size: 12),
-                      Text(
-                        ' ${coffee.rating.toStringAsFixed(1).replaceAll('.', ',')}/5',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
+                      const Icon(Icons.star, size: 15, color: AppColors.star),
+                      const SizedBox(width: 3),
+                      Text('${rating(coffee.rating)}/5', style: AppText.s(12)),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Text(
-                        '\$ ${coffee.price.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (qty > 0) ...[
-                        _QtyBtn(
-                          icon: Icons.remove,
-                          onTap: () => ref
-                              .read(cartProvider.notifier)
-                              .decrement(coffee.id),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            '$qty',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                      _QtyBtn(
-                        icon: Icons.add,
-                        onTap: () =>
-                            ref.read(cartProvider.notifier).addItem(coffee),
-                      ),
-                    ],
+                  Text(
+                    money(coffee.price),
+                    style: AppText.s(
+                      16,
+                      weight: FontWeight.w500,
+                      color: AppColors.textBrown,
+                    ),
                   ),
+                  const Spacer(flex: 40),
                 ],
               ),
+            ),
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: item == null
+                  ? _CornerPlus(onTap: add)
+                  : Padding(
+                      padding: const EdgeInsets.only(right: 0, bottom: 0),
+                      child: Row(
+                        children: [
+                          _OutlineSquare(
+                            icon: Icons.remove,
+                            onTap: () => cart.decrement(key),
+                          ),
+                          SizedBox(
+                            width: 40,
+                            child: Center(
+                              child: Text(
+                                '${item.quantity}',
+                                style: AppText.s(16),
+                              ),
+                            ),
+                          ),
+                          _CornerPlus(
+                            onTap: () {
+                              cart.increment(key);
+                              ref.read(lastCartKeyProvider.notifier).state =
+                                  key;
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
             ),
           ],
         ),
@@ -370,103 +287,59 @@ class _CoffeeCard extends ConsumerWidget {
   }
 }
 
-class _QtyBtn extends StatelessWidget {
-  final IconData icon;
+class _CornerPlus extends StatelessWidget {
   final VoidCallback onTap;
-  const _QtyBtn({required this.icon, required this.onTap});
+  const _CornerPlus({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 24,
-        height: 24,
-        decoration: const BoxDecoration(
-          color: AppColors.primary,
-          shape: BoxShape.circle,
+    return Material(
+      color: AppColors.terracotta,
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(10),
+        bottomRight: Radius.circular(10),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(10),
+          bottomRight: Radius.circular(10),
         ),
-        child: Icon(icon, color: Colors.white, size: 14),
+        child: const SizedBox(
+          width: 34,
+          height: 34,
+          child: Icon(Icons.add, color: Colors.white, size: 30),
+        ),
       ),
     );
   }
 }
 
-class _DiscountTab extends StatelessWidget {
-  const _DiscountTab();
+class _OutlineSquare extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _OutlineSquare({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    Future.microtask(() {
-      if (context.mounted) context.push('/discount');
-    });
-    return const SizedBox.shrink();
-  }
-}
-
-class _OrderTab extends StatelessWidget {
-  const _OrderTab();
-
-  @override
-  Widget build(BuildContext context) {
-    Future.microtask(() {
-      if (context.mounted) context.push('/cart');
-    });
-    return const SizedBox.shrink();
-  }
-}
-
-class _ProfileTab extends StatelessWidget {
-  const _ProfileTab();
-
-  @override
-  Widget build(BuildContext context) {
-    Future.microtask(() {
-      if (context.mounted) context.push('/profile/edit');
-    });
-    return const SizedBox.shrink();
-  }
-}
-
-class _BottomNav extends StatelessWidget {
-  final int currentIndex;
-  final ValueChanged<int> onTap;
-  const _BottomNav({required this.currentIndex, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: currentIndex,
-      onTap: onTap,
-      type: BottomNavigationBarType.fixed,
-      selectedItemColor: AppColors.primary,
-      unselectedItemColor: AppColors.textLight,
-      backgroundColor: Colors.white,
-      elevation: 8,
-      selectedFontSize: 11,
-      unselectedFontSize: 11,
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined),
-          activeIcon: Icon(Icons.home),
-          label: 'home',
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Material(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: const BorderSide(color: AppColors.terracotta),
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.discount_outlined),
-          activeIcon: Icon(Icons.discount),
-          label: 'discount',
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(6),
+          child: SizedBox(
+            width: 32,
+            height: 32,
+            child: Icon(icon, color: AppColors.terracotta, size: 26),
+          ),
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.add_box_outlined),
-          activeIcon: Icon(Icons.add_box),
-          label: 'order',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline),
-          activeIcon: Icon(Icons.person),
-          label: 'profile',
-        ),
-      ],
+      ),
     );
   }
 }

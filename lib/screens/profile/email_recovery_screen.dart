@@ -2,40 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/providers.dart';
+import '../../services/app_exception.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/brown_field.dart';
+import '../../widgets/buttons.dart';
+import '../../widgets/wave_header.dart';
 
 class EmailRecoveryScreen extends ConsumerStatefulWidget {
-  const EmailRecoveryScreen({super.key});
+  final bool changeMode;
+  const EmailRecoveryScreen({super.key, required this.changeMode});
 
   @override
-  ConsumerState<EmailRecoveryScreen> createState() =>
-      _EmailRecoveryScreenState();
+  ConsumerState<EmailRecoveryScreen> createState() => _EmailRecoveryScreenState();
 }
 
 class _EmailRecoveryScreenState extends ConsumerState<EmailRecoveryScreen> {
   final _emailCtrl = TextEditingController();
   bool _loading = false;
-  bool _sent = false;
 
-  Future<void> _sendResetEmail() async {
-    setState(() => _loading = true);
-    try {
-      await ref
-          .read(authServiceProvider)
-          .sendPasswordResetEmail(_emailCtrl.text.trim());
-      if (mounted) {
-        setState(() => _sent = true);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+  @override
+  void initState() {
+    super.initState();
+    if (widget.changeMode) {
+      final user = ref.read(currentUserProvider).valueOrNull;
+      _emailCtrl.text = user?.email ?? '';
     }
   }
 
@@ -45,117 +35,81 @@ class _EmailRecoveryScreenState extends ConsumerState<EmailRecoveryScreen> {
     super.dispose();
   }
 
+  Future<void> _submit() async {
+    final t = ref.read(stringsProvider);
+    final email = _emailCtrl.text.trim();
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      showMessage(context, t(widget.changeMode && email.isEmpty ? 'setEmailFirst' : 'invalidEmail'));
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      if (!widget.changeMode) {
+        await ref.read(authServiceProvider).sendPasswordResetEmail(email);
+        if (!mounted) return;
+        showMessage(context, t('resetLinkSent'));
+        context.pop();
+        return;
+      }
+      final user = ref.read(currentUserProvider).valueOrNull;
+      if (user == null) return;
+      if (user.email.isEmpty) {
+        showMessage(context, t('setEmailFirst'));
+        return;
+      }
+      if (email.toLowerCase() != user.email.toLowerCase()) {
+        showMessage(context, t('invalidEmail'));
+        return;
+      }
+      await ref.read(otpServiceProvider).send(uid: user.uid, email: user.email, name: user.name);
+      if (!mounted) return;
+      showMessage(context, t('otpSent'));
+      context.push('/profile/otp');
+    } catch (e) {
+      if (mounted) showMessage(context, errorText(e, t));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final t = ref.watch(stringsProvider);
+    final bottom = MediaQuery.of(context).padding.bottom;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white,
       body: Column(
         children: [
-          SizedBox(
-            height: 200,
-            child: Stack(
+          WaveHeader(title: t('recovery')),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(23, 54, 23, 20),
               children: [
-                ClipPath(
-                  clipper: _WC(0),
-                  child: Container(color: const Color(0xFF3D3D3D), height: 200),
+                Center(child: Text(t('passwordRecovery'), style: AppText.s(24, weight: FontWeight.w500, spacing: 0.5))),
+                const SizedBox(height: 10),
+                Center(
+                  child: Text(
+                    t('recoveryHint'),
+                    textAlign: TextAlign.center,
+                    style: AppText.s(16, color: const Color(0xFF9A9A9A), spacing: 0.5),
+                  ),
                 ),
-                ClipPath(
-                  clipper: _WC(20),
-                  child: Container(color: AppColors.primary, height: 180),
-                ),
-                ClipPath(
-                  clipper: _WC(40),
-                  child: Container(color: AppColors.secondary, height: 160),
+                const SizedBox(height: 40),
+                BrownField(
+                  controller: _emailCtrl,
+                  hint: '',
+                  icon: Icons.mail_outline,
+                  keyboardType: TextInputType.emailAddress,
                 ),
               ],
             ),
           ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Forgot Password',
-                    style: Theme.of(context).textTheme.displayMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _sent
-                        ? 'reset link sent, check your inbox and follow the link to set a new password'
-                        : 'enter your email and we will send you a link to reset your password',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  if (!_sent) ...[
-                    TextField(
-                      controller: _emailCtrl,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(labelText: 'email'),
-                    ),
-                    const SizedBox(height: 28),
-                    ElevatedButton(
-                      onPressed: _loading ? null : _sendResetEmail,
-                      child: _loading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('send reset link'),
-                    ),
-                  ] else
-                    ElevatedButton(
-                      onPressed: () => context.go('/auth/sign-in'),
-                      child: const Text('back to sign in'),
-                    ),
-                  const SizedBox(height: 20),
-                  if (!_sent)
-                    Center(
-                      child: GestureDetector(
-                        onTap: () => context.pop(),
-                        child: const Text(
-                          'back to sign in',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(23, 0, 23, 44 + bottom),
+            child: PrimaryButton(label: t('save'), onTap: _submit, loading: _loading),
           ),
         ],
       ),
     );
   }
-}
-
-class _WC extends CustomClipper<Path> {
-  final double off;
-  const _WC(this.off);
-  @override
-  Path getClip(Size s) {
-    return Path()
-      ..lineTo(0, s.height - 30 - off)
-      ..quadraticBezierTo(
-        s.width * 0.3,
-        s.height - off,
-        s.width * 0.6,
-        s.height - 20 - off,
-      )
-      ..quadraticBezierTo(
-        s.width * 0.85,
-        s.height - 40 - off,
-        s.width,
-        s.height - 10 - off,
-      )
-      ..lineTo(s.width, 0)
-      ..close();
-  }
-
-  @override
-  bool shouldReclip(_WC o) => false;
 }

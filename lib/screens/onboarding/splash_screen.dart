@@ -1,119 +1,63 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _rotateController;
-  late AnimationController _fadeController;
-  late AnimationController _scaleController;
-
-  late Animation<double> _rotateAnim;
-  late Animation<double> _fadeAnim;
-  late Animation<double> _scaleAnim;
-
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-
-    _rotateController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 6),
-    )..repeat();
-    _rotateAnim =
-        TweenSequence<double>([
-          TweenSequenceItem(tween: Tween(begin: -0.05, end: 0.05), weight: 1),
-          TweenSequenceItem(tween: Tween(begin: 0.05, end: -0.05), weight: 1),
-        ]).animate(
-          CurvedAnimation(parent: _rotateController, curve: Curves.easeInOut),
-        );
-
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    )..forward();
-    _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
-
-    _scaleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..forward();
-    _scaleAnim = CurvedAnimation(
-      parent: _scaleController,
-      curve: Curves.elasticOut,
-    );
-
-    _navigate();
+    _start();
   }
 
-  Future<void> _navigate() async {
-    await Future.delayed(const Duration(seconds: 3));
-    if (!mounted) return;
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    final seen = prefs.getBool('onboarding_seen') ?? false;
-    if (seen) {
-      context.go('/auth/sign-in');
+  Future<void> _start() async {
+    final prefs = ref.read(prefsProvider);
+    await Future.delayed(const Duration(milliseconds: 1800));
+    final onboarded = prefs.getBool('onboarded') ?? false;
+    final user = FirebaseAuth.instance.currentUser;
+    String target;
+    if (!onboarded) {
+      target = '/onboarding';
+    } else if (user == null) {
+      target = '/auth/sign-in';
+    } else if (!(prefs.getBool('remember') ?? true)) {
+      await ref.read(authServiceProvider).signOut();
+      ref.read(cartProvider.notifier).clear();
+      target = '/auth/sign-in';
     } else {
-      await prefs.setBool('onboarding_seen', true);
-      if (!mounted) return;
-      context.go('/onboarding');
+      try {
+        await ref.read(authServiceProvider).syncAccount();
+      } catch (_) {}
+      target = '/home';
     }
-  }
-
-  @override
-  void dispose() {
-    _rotateController.dispose();
-    _fadeController.dispose();
-    _scaleController.dispose();
-    super.dispose();
+    if (mounted) context.go(target);
   }
 
   @override
   Widget build(BuildContext context) {
+    final w = MediaQuery.of(context).size.width;
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: FadeTransition(
-        opacity: _fadeAnim,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ScaleTransition(
-                scale: _scaleAnim,
-                child: AnimatedBuilder(
-                  animation: _rotateAnim,
-                  builder: (context, child) {
-                    return Transform.rotate(
-                      angle: _rotateAnim.value,
-                      child: child,
-                    );
-                  },
-                  child: Image.asset(
-                    'assets/images/mug.png',
-                    width: 200,
-                    height: 200,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-              FadeTransition(
-                opacity: _fadeAnim,
-                child: Image.asset(
-                  'assets/images/splash_title.png',
-                  width: 180,
-                ),
-              ),
-            ],
-          ),
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset('assets/images/icon.png', width: w * 0.82),
+            const SizedBox(height: 8),
+            Text('grind', style: AppText.s(48, weight: FontWeight.w800, color: AppColors.charcoal, height: 1)),
+            const SizedBox(height: 8),
+            Text('have a coffee day', style: AppText.s(20, weight: FontWeight.w300, color: AppColors.charcoal)),
+            const SizedBox(height: 60),
+          ],
         ),
       ),
     );

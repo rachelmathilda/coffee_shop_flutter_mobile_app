@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/providers.dart';
+import '../../services/app_exception.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/auth_wave.dart';
+import '../../widgets/buttons.dart';
+import 'auth_widgets.dart';
 
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
@@ -12,25 +16,48 @@ class SignInScreen extends ConsumerStatefulWidget {
 }
 
 class _SignInScreenState extends ConsumerState<SignInScreen> {
-  final _emailCtrl = TextEditingController();
-  final _passwordCtrl = TextEditingController();
-  bool _rememberMe = false;
-  bool _loading = false;
+  final _idCtrl = TextEditingController();
+  final _pwCtrl = TextEditingController();
+  bool _remember = true;
   bool _obscure = true;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _remember = ref.read(prefsProvider).getBool('remember') ?? true;
+  }
+
+  Future<void> _afterLogin() async {
+    await ref.read(prefsProvider).setBool('remember', _remember);
+    if (mounted) context.go('/home');
+  }
 
   Future<void> _signIn() async {
+    final t = ref.read(stringsProvider);
+    if (_idCtrl.text.trim().isEmpty || _pwCtrl.text.isEmpty) {
+      showMessage(context, t('fillAllFields'));
+      return;
+    }
     setState(() => _loading = true);
     try {
-      await ref
-          .read(authServiceProvider)
-          .signIn(_emailCtrl.text.trim(), _passwordCtrl.text);
-      if (mounted) context.go('/home');
+      await ref.read(authServiceProvider).signIn(_idCtrl.text, _pwCtrl.text);
+      await _afterLogin();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
+      if (mounted) showMessage(context, errorText(e, t));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _google() async {
+    final t = ref.read(stringsProvider);
+    setState(() => _loading = true);
+    try {
+      await ref.read(authServiceProvider).signInWithGoogle();
+      await _afterLogin();
+    } catch (e) {
+      if (mounted) showMessage(context, errorText(e, t));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -38,243 +65,81 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
-    _passwordCtrl.dispose();
+    _idCtrl.dispose();
+    _pwCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = ref.watch(stringsProvider);
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          _WaveHeaderAuth(),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Welcome Back',
-                    style: Theme.of(context).textTheme.displayMedium,
-                  ),
-                  const SizedBox(height: 24),
-                  TextField(
-                    controller: _emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      hintText: 'email',
-                      labelText: 'email',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _passwordCtrl,
-                    obscureText: _obscure,
-                    decoration: InputDecoration(
-                      hintText: 'password',
-                      labelText: 'password',
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscure ? Icons.visibility_off : Icons.visibility,
-                        ),
-                        onPressed: () => setState(() => _obscure = !_obscure),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => setState(() => _rememberMe = !_rememberMe),
-                        child: Row(
-                          children: [
-                            Icon(
-                              _rememberMe
-                                  ? Icons.radio_button_checked
-                                  : Icons.radio_button_off,
-                              color: AppColors.primary,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 6),
-                            const Text(
-                              'remember me',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: () => context.push('/auth/recovery'),
-                        child: const Text(
-                          'forgot password?',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 28),
-                  ElevatedButton(
-                    onPressed: _loading ? null : _signIn,
-                    child: _loading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('sign up'),
-                  ),
-                  const SizedBox(height: 20),
-                  const _OrDivider(),
-                  const SizedBox(height: 16),
-                  _SocialButton(
-                    icon: Icons.g_mobiledata,
-                    label: 'sign up with google',
-                    onTap: () {},
-                  ),
-                  const SizedBox(height: 24),
-                  Center(
-                    child: GestureDetector(
-                      onTap: () => context.go('/auth/sign-up'),
-                      child: RichText(
-                        text: const TextSpan(
-                          text: "don't have an account yet? ",
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: 'sign in',
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WaveHeaderAuth extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 200,
-      child: Stack(
-        children: [
-          ClipPath(
-            clipper: _WC(0),
-            child: Container(color: const Color(0xFF3D3D3D), height: 200),
-          ),
-          ClipPath(
-            clipper: _WC(20),
-            child: Container(color: AppColors.primary, height: 180),
-          ),
-          ClipPath(
-            clipper: _WC(40),
-            child: Container(color: AppColors.secondary, height: 160),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WC extends CustomClipper<Path> {
-  final double off;
-  const _WC(this.off);
-  @override
-  Path getClip(Size s) {
-    final p = Path()
-      ..lineTo(0, s.height - 30 - off)
-      ..quadraticBezierTo(
-        s.width * 0.3,
-        s.height - off,
-        s.width * 0.6,
-        s.height - 20 - off,
-      )
-      ..quadraticBezierTo(
-        s.width * 0.85,
-        s.height - 40 - off,
-        s.width,
-        s.height - 10 - off,
-      )
-      ..lineTo(s.width, 0)
-      ..close();
-    return p;
-  }
-
-  @override
-  bool shouldReclip(_WC o) => false;
-}
-
-class _OrDivider extends StatelessWidget {
-  const _OrDivider();
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        Expanded(child: Divider()),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12),
-          child: Text('or', style: TextStyle(color: AppColors.textSecondary)),
-        ),
-        Expanded(child: Divider()),
-      ],
-    );
-  }
-}
-
-class _SocialButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _SocialButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE0D0C0)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+      backgroundColor: Colors.white,
+      body: SingleChildScrollView(
+        child: Column(
           children: [
-            Icon(icon, size: 20, color: AppColors.textPrimary),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textPrimary,
+            const AuthWave(),
+            const SizedBox(height: 22),
+            Text(t('welcomeBack'), style: AppText.s(32, weight: FontWeight.w700, color: AppColors.charcoal)),
+            const SizedBox(height: 34),
+            Center(
+              child: SizedBox(
+                width: 292,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    NotchedField(
+                      label: t('username'),
+                      controller: _idCtrl,
+                      action: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 22),
+                    NotchedField(
+                      label: t('password'),
+                      controller: _pwCtrl,
+                      obscure: _obscure,
+                      onToggleObscure: () => setState(() => _obscure = !_obscure),
+                      action: TextInputAction.done,
+                      onSubmitted: (_) => _signIn(),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        RingCheck(
+                          value: _remember,
+                          label: t('rememberMe'),
+                          onChanged: (v) => setState(() => _remember = v),
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () => context.push('/auth/recovery'),
+                          child: Text(t('forgotPassword'), style: AppText.s(12, weight: FontWeight.w300)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
+            const SizedBox(height: 26),
+            DarkPillButton(label: t('signIn'), onTap: _signIn, loading: _loading),
+            const SizedBox(height: 24),
+            Text(t('or'), style: AppText.s(16, weight: FontWeight.w300)),
+            const SizedBox(height: 24),
+            GoogleButton(label: t('signUpWithGoogle'), onTap: _loading ? null : _google),
+            const SizedBox(height: 90),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(t('noAccount'), style: AppText.s(15, weight: FontWeight.w300)),
+                const SizedBox(width: 14),
+                GestureDetector(
+                  onTap: () => context.go('/auth/sign-up'),
+                  child: Text(t('signUp'), style: AppText.s(15, weight: FontWeight.w600, color: const Color(0xFF6B747C))),
+                ),
+              ],
+            ),
+            const SizedBox(height: 40),
           ],
         ),
       ),

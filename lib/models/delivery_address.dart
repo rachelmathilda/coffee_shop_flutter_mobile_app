@@ -11,12 +11,7 @@ class DeliveryAddress {
     this.detail = '',
   });
 
-  DeliveryAddress copyWith({
-    String? address,
-    String? detail,
-    double? lat,
-    double? lng,
-  }) {
+  DeliveryAddress copyWith({String? address, String? detail, double? lat, double? lng}) {
     return DeliveryAddress(
       address: address ?? this.address,
       detail: detail ?? this.detail,
@@ -24,4 +19,11 @@ class DeliveryAddress {
       lng: lng ?? this.lng,
     );
   }
+
+  Map<String, dynamic> toMap() => {
+        'address': address,
+        'detail': detail,
+        'lat': lat,
+        'lng': lng,
+      };
 }

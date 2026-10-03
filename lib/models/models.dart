@@ -1,6 +1,9 @@
 export 'coffee.dart';
 export 'cart_item.dart';
 export 'discount.dart';
-export 'custom_coffee_order.dart';
 export 'promo.dart';
 export 'delivery_address.dart';
+export 'custom_coffee_order.dart';
+export 'app_user.dart';
+export 'coffee_order.dart';
+export 'app_settings.dart';

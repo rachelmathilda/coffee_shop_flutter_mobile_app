@@ -1,28 +1,31 @@
-enum CoffeeTemp { hot, iced }
-
-enum SugarLevel { less, normal, high }
-
 class CustomCoffeeOrder {
-  CoffeeTemp temp;
-  String coffeeType;
-  String cupSize;
-  SugarLevel sugarLevel;
-  String? topping;
-  double basePrice;
+  final bool iced;
+  final String coffeeType;
+  final String cupSize;
+  final int sugar;
+  final String topping;
 
-  CustomCoffeeOrder({
-    this.temp = CoffeeTemp.iced,
-    this.coffeeType = 'Arabica',
-    this.cupSize = 'M',
-    this.sugarLevel = SugarLevel.normal,
-    this.topping,
-    this.basePrice = 2.00,
+  const CustomCoffeeOrder({
+    this.iced = true,
+    this.coffeeType = 'Liberica',
+    this.cupSize = 'L',
+    this.sugar = 1,
+    this.topping = 'Caramel',
   });
 
-  double get totalPrice {
-    double price = basePrice;
-    if (cupSize == 'L') price += 0.50;
-    if (topping != null) price += 0.30;
-    return price;
+  CustomCoffeeOrder copyWith({
+    bool? iced,
+    String? coffeeType,
+    String? cupSize,
+    int? sugar,
+    String? topping,
+  }) {
+    return CustomCoffeeOrder(
+      iced: iced ?? this.iced,
+      coffeeType: coffeeType ?? this.coffeeType,
+      cupSize: cupSize ?? this.cupSize,
+      sugar: sugar ?? this.sugar,
+      topping: topping ?? this.topping,
+    );
   }
 }

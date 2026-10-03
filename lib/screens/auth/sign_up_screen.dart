@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/providers.dart';
+import '../../services/app_exception.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/auth_wave.dart';
+import '../../widgets/buttons.dart';
+import 'auth_widgets.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -12,40 +16,56 @@ class SignUpScreen extends ConsumerStatefulWidget {
 }
 
 class _SignUpScreenState extends ConsumerState<SignUpScreen> {
-  final _emailCtrl = TextEditingController();
-  final _passwordCtrl = TextEditingController();
+  final _userCtrl = TextEditingController();
+  final _pwCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
-  bool _accepted = false;
+  bool _accept = false;
+  bool _obscure = true;
   bool _loading = false;
 
   Future<void> _signUp() async {
-    if (_passwordCtrl.text != _confirmCtrl.text) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
+    final t = ref.read(stringsProvider);
+    if (_userCtrl.text.trim().isEmpty || _pwCtrl.text.isEmpty || _confirmCtrl.text.isEmpty) {
+      showMessage(context, t('fillAllFields'));
+      return;
+    }
+    if (_pwCtrl.text.length < 6) {
+      showMessage(context, t('passwordTooShort'));
+      return;
+    }
+    if (_pwCtrl.text != _confirmCtrl.text) {
+      showMessage(context, t('passwordMismatch'));
+      return;
+    }
+    if (!_accept) {
+      showMessage(context, t('acceptTermsFirst'));
       return;
     }
     setState(() => _loading = true);
     try {
-      final service = ref.read(authServiceProvider);
-      final credential = await service.signUp(
-        _emailCtrl.text.trim(),
-        _passwordCtrl.text,
-      );
-      final uid = credential.user?.uid;
-      if (uid != null) {
-        await service.saveUserProfile(uid, {
-          'email': _emailCtrl.text.trim(),
-          'createdAt': DateTime.now().toIso8601String(),
-        });
-      }
+      await ref.read(authServiceProvider).signUp(_userCtrl.text, _pwCtrl.text);
+      await ref.read(prefsProvider).setBool('remember', true);
       if (mounted) context.go('/home');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
+      if (mounted) showMessage(context, errorText(e, t));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _google() async {
+    final t = ref.read(stringsProvider);
+    if (!_accept) {
+      showMessage(context, t('acceptTermsFirst'));
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      await ref.read(authServiceProvider).signInWithGoogle();
+      await ref.read(prefsProvider).setBool('remember', true);
+      if (mounted) context.go('/home');
+    } catch (e) {
+      if (mounted) showMessage(context, errorText(e, t));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -53,206 +73,78 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
-    _passwordCtrl.dispose();
+    _userCtrl.dispose();
+    _pwCtrl.dispose();
     _confirmCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = ref.watch(stringsProvider);
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          SizedBox(
-            height: 200,
-            child: Stack(
+      backgroundColor: Colors.white,
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            const AuthWave(signUp: true),
+            Text(t('createAccount'), style: AppText.s(32, weight: FontWeight.w700, color: AppColors.charcoal)),
+            const SizedBox(height: 34),
+            Center(
+              child: SizedBox(
+                width: 292,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    NotchedField(label: t('username'), controller: _userCtrl, action: TextInputAction.next),
+                    const SizedBox(height: 22),
+                    NotchedField(
+                      label: t('password'),
+                      controller: _pwCtrl,
+                      obscure: _obscure,
+                      onToggleObscure: () => setState(() => _obscure = !_obscure),
+                      action: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 22),
+                    NotchedField(
+                      label: t('confirmPasswordLower'),
+                      controller: _confirmCtrl,
+                      obscure: _obscure,
+                      action: TextInputAction.done,
+                      onSubmitted: (_) => _signUp(),
+                    ),
+                    const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: RingCheck(
+                        value: _accept,
+                        label: t('acceptTerms'),
+                        onChanged: (v) => setState(() => _accept = v),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
+            DarkPillButton(label: t('signUp'), onTap: _signUp, loading: _loading),
+            const SizedBox(height: 24),
+            Text(t('or'), style: AppText.s(16, weight: FontWeight.w300)),
+            const SizedBox(height: 24),
+            GoogleButton(label: t('signUpWithGoogle'), onTap: _loading ? null : _google),
+            const SizedBox(height: 90),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                ClipPath(
-                  clipper: _WC(0),
-                  child: Container(color: const Color(0xFF3D3D3D), height: 200),
-                ),
-                ClipPath(
-                  clipper: _WC(20),
-                  child: Container(color: AppColors.primary, height: 180),
-                ),
-                ClipPath(
-                  clipper: _WC(40),
-                  child: Container(color: AppColors.secondary, height: 160),
+                Text(t('haveAccount'), style: AppText.s(15, weight: FontWeight.w300)),
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: () => context.go('/auth/sign-in'),
+                  child: Text(t('signIn'), style: AppText.s(15, weight: FontWeight.w600, color: const Color(0xFF6B747C))),
                 ),
               ],
             ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Create Account',
-                    style: Theme.of(context).textTheme.displayMedium,
-                  ),
-                  const SizedBox(height: 24),
-                  TextField(
-                    controller: _emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'email'),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _passwordCtrl,
-                    obscureText: true,
-                    decoration: const InputDecoration(labelText: 'password'),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _confirmCtrl,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'confirm password',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  GestureDetector(
-                    onTap: () => setState(() => _accepted = !_accepted),
-                    child: Row(
-                      children: [
-                        Icon(
-                          _accepted
-                              ? Icons.radio_button_checked
-                              : Icons.radio_button_off,
-                          color: AppColors.primary,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'i accept the policy and terms',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  ElevatedButton(
-                    onPressed: _loading ? null : _signUp,
-                    child: _loading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('sign in'),
-                  ),
-                  const SizedBox(height: 16),
-                  const Row(
-                    children: [
-                      Expanded(child: Divider()),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          'or',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-                      ),
-                      Expanded(child: Divider()),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _SocialBtn(
-                    icon: Icons.g_mobiledata,
-                    label: 'sign up with google',
-                    onTap: () {},
-                  ),
-                  const SizedBox(height: 24),
-                  Center(
-                    child: GestureDetector(
-                      onTap: () => context.go('/auth/sign-in'),
-                      child: RichText(
-                        text: const TextSpan(
-                          text: 'already have an account? ',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: 'sign up',
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WC extends CustomClipper<Path> {
-  final double off;
-  const _WC(this.off);
-  @override
-  Path getClip(Size s) {
-    return Path()
-      ..lineTo(0, s.height - 30 - off)
-      ..quadraticBezierTo(
-        s.width * 0.3,
-        s.height - off,
-        s.width * 0.6,
-        s.height - 20 - off,
-      )
-      ..quadraticBezierTo(
-        s.width * 0.85,
-        s.height - 40 - off,
-        s.width,
-        s.height - 10 - off,
-      )
-      ..lineTo(s.width, 0)
-      ..close();
-  }
-
-  @override
-  bool shouldReclip(_WC o) => false;
-}
-
-class _SocialBtn extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _SocialBtn({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE0D0C0)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 20),
-            const SizedBox(width: 8),
-            Text(label, style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 40),
           ],
         ),
       ),

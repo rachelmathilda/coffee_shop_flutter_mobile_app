@@ -1,112 +1,80 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_theme.dart';
 
 class WaveHeader extends StatelessWidget {
   final String title;
-  final bool showBack;
+  final VoidCallback? onBack;
 
-  const WaveHeader({super.key, required this.title, this.showBack = true});
+  const WaveHeader({super.key, required this.title, this.onBack});
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        ClipPath(
-          clipper: _WaveClipper(),
-          child: Container(height: 110, color: AppColors.primary),
-        ),
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: ClipPath(
-            clipper: _WaveClipper2(),
-            child: Container(height: 40, color: AppColors.background),
+    final top = MediaQuery.of(context).padding.top;
+    return SizedBox(
+      height: top + 122,
+      width: double.infinity,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: CustomPaint(painter: _HeaderWavePainter(top)),
           ),
-        ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: Row(
+          Positioned(
+            top: top + 22,
+            left: 0,
+            right: 0,
+            child: SizedBox(
+              height: 48,
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  if (showBack)
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(
-                        Icons.arrow_back_ios,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                  Expanded(
-                    child: Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  Text(
+                    title,
+                    style: AppText.s(22, weight: FontWeight.w600, color: Colors.white, spacing: 0.4),
+                  ),
+                  Positioned(
+                    left: 28,
+                    child: IconButton(
+                      onPressed: onBack ??
+                          () {
+                            if (context.canPop()) {
+                              context.pop();
+                            } else {
+                              context.go('/home');
+                            }
+                          },
+                      icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
                     ),
                   ),
-                  if (showBack) const SizedBox(width: 48),
                 ],
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _WaveClipper extends CustomClipper<Path> {
+class _HeaderWavePainter extends CustomPainter {
+  final double top;
+  _HeaderWavePainter(this.top);
+
   @override
-  Path getClip(Size size) {
-    final path = Path();
-    path.lineTo(0, size.height - 30);
-    path.quadraticBezierTo(
-      size.width * 0.25,
-      size.height,
-      size.width * 0.5,
-      size.height - 20,
-    );
-    path.quadraticBezierTo(
-      size.width * 0.75,
-      size.height - 40,
-      size.width,
-      size.height - 10,
-    );
-    path.lineTo(size.width, 0);
-    path.close();
-    return path;
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final sx = w / 412;
+    double y(double v) => top + v;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(0, y(98))
+      ..cubicTo(35 * sx, y(80), 90 * sx, y(80), 150 * sx, y(102))
+      ..cubicTo(205 * sx, y(122), 300 * sx, y(112), w, y(100))
+      ..lineTo(w, 0)
+      ..close();
+    canvas.drawPath(path, Paint()..color = AppColors.header);
   }
 
   @override
-  bool shouldReclip(_WaveClipper oldClipper) => false;
-}
-
-class _WaveClipper2 extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final path = Path();
-    path.moveTo(0, size.height);
-    path.quadraticBezierTo(
-      size.width * 0.25,
-      0,
-      size.width * 0.5,
-      size.height * 0.5,
-    );
-    path.quadraticBezierTo(size.width * 0.75, size.height, size.width, 0);
-    path.lineTo(size.width, size.height);
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(_WaveClipper2 oldClipper) => false;
+  bool shouldRepaint(covariant _HeaderWavePainter old) => old.top != top;
 }
